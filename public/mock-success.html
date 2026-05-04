@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DodoArc Mock Checkout Success</title>
+  <style>
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f7f3ec;
+      color: #2a2820;
+    }
+    main {
+      max-width: 520px;
+      padding: 32px;
+      background: #fdfaf5;
+      border: 1px solid #e8e0d0;
+      border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(42,40,32,0.12);
+    }
+    button {
+      margin-top: 20px;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: #2a2820;
+      color: #f7f3ec;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .muted { color: #7a7568; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Mock checkout complete</h1>
+    <p class="muted">
+      This local page simulates Dodo checkout while your real Dodo product ID/API key are not configured.
+      Click below to send a test webhook and activate credits in DodoArc.
+    </p>
+    <button id="activate">Send test webhook</button>
+  </main>
+  <script>
+    document.getElementById('activate').addEventListener('click', async () => {
+      const params = new URLSearchParams(window.location.search);
+      const planId = params.get('planId') || 'plan_pro';
+      const email = params.get('email') || 'demo@dodoarc.local';
+      const name = params.get('name') || 'Demo User';
+
+      const response = await fetch('/api/webhook/dodo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'webhook-id': `local_${Date.now()}`
+        },
+        body: JSON.stringify({
+          type: 'payment.succeeded',
+          timestamp: new Date().toISOString(),
+          data: {
+            payload_type: 'Payment',
+            payment_id: `pay_local_${Date.now()}`,
+            total_amount: 299900,
+            currency: 'INR',
+            customer: { email, name },
+            metadata: { planId, email, name }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        alert('Webhook failed. Check server logs.');
+        return;
+      }
+
+      window.location.href = '/#dashboard';
+    });
+  </script>
+</body>
+</html>

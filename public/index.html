@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DodoArc — Billing OS for AI Agent Products</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream:       #F7F3EC;
+    --cream-dark:  #EDE8DE;
+    --parchment:   #E8E0D0;
+    --olive:       #6B7C5C;
+    --olive-light: #8A9B72;
+    --olive-dark:  #4A5840;
+    --olive-mist:  #D4DBC8;
+    --lavender:    #B8A9C9;
+    --lavender-light: #D4C9E2;
+    --lavender-dark:  #8B789E;
+    --lavender-pale:  #EDE8F4;
+    --blush:       #D4B8A0;
+    --blush-light: #EAD9C8;
+    --ink:         #2A2820;
+    --ink-mid:     #4A4640;
+    --ink-soft:    #7A7568;
+    --gold:        #C4A84A;
+    --gold-light:  #E2C870;
+    --white:       #FDFAF5;
+    --shadow-soft: 0 2px 20px rgba(42,40,32,0.08);
+    --shadow-med:  0 8px 40px rgba(42,40,32,0.12);
+    --r-sm: 6px;
+    --r-md: 12px;
+    --r-lg: 20px;
+    --r-xl: 32px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 3rem;
+    background: rgba(247,243,236,0.88);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(107,124,92,0.15);
+  }
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem; font-weight: 600; letter-spacing: 0.02em;
+    color: var(--ink);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--olive); display: inline-block;
+    animation: pulse-dot 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.6; }
+  }
+  .nav-links { display: flex; align-items: center; gap: 2rem; }
+  .nav-links a {
+    font-size: 0.85rem; font-weight: 500; color: var(--ink-soft);
+    text-decoration: none; letter-spacing: 0.03em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--olive); }
+  .nav-cta {
+    background: var(--olive); color: var(--white) !important;
+    padding: 0.55rem 1.3rem; border-radius: 100px;
+    font-weight: 600 !important; letter-spacing: 0.02em;
+    transition: background 0.2s, transform 0.2s !important;
+  }
+  .nav-cta:hover { background: var(--olive-dark) !important; transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 7rem 2rem 4rem;
+    position: relative; overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 20%, rgba(184,169,201,0.22) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 10% 80%, rgba(107,124,92,0.14) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(212,184,160,0.12) 0%, transparent 70%);
+  }
+  .hero-grain {
+    position: absolute; inset: 0; z-index: 0; opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 200px;
+  }
+  .hero-inner { position: relative; z-index: 1; text-align: center; max-width: 860px; }
+
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; font-weight: 400;
+    color: var(--olive); letter-spacing: 0.12em; text-transform: uppercase;
+    background: rgba(107,124,92,0.1); border: 1px solid rgba(107,124,92,0.25);
+    padding: 0.4rem 1rem; border-radius: 100px; margin-bottom: 2rem;
+    animation: fade-up 0.8s ease both;
+  }
+  .eyebrow-dot { width: 5px; height: 5px; background: var(--olive); border-radius: 50%; }
+
+  .hero-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(3rem, 7vw, 5.5rem);
+    font-weight: 500; line-height: 1.08; letter-spacing: -0.01em;
+    color: var(--ink); margin-bottom: 1.5rem;
+    animation: fade-up 0.8s 0.1s ease both;
+  }
+  .hero-title em { font-style: italic; color: var(--olive); }
+  .hero-title .lavender-word { color: var(--lavender-dark); }
+
+  .hero-sub {
+    font-size: 1.1rem; color: var(--ink-soft); line-height: 1.7; max-width: 560px; margin: 0 auto 2.5rem;
+    font-weight: 400;
+    animation: fade-up 0.8s 0.2s ease both;
+  }
+
+  .hero-actions {
+    display: flex; align-items: center; justify-content: center; gap: 1rem;
+    animation: fade-up 0.8s 0.3s ease both;
+  }
+  .btn-primary {
+    background: var(--ink); color: var(--cream);
+    padding: 0.8rem 2rem; border-radius: 100px;
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 0.9rem; font-weight: 600; letter-spacing: 0.03em;
+    border: none; cursor: pointer; text-decoration: none;
+    transition: background 0.2s, transform 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary:hover { background: var(--olive-dark); transform: translateY(-2px); }
+  .btn-secondary {
+    background: transparent; color: var(--ink-mid);
+    padding: 0.8rem 2rem; border-radius: 100px;
+    font-size: 0.9rem; font-weight: 500; letter-spacing: 0.03em;
+    border: 1.5px solid var(--parchment); cursor: pointer; text-decoration: none;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-secondary:hover { border-color: var(--olive-mist); color: var(--olive); transform: translateY(-2px); }
+
+  .hero-visual {
+    margin-top: 4rem;
+    animation: fade-up 0.8s 0.4s ease both;
+    position: relative; z-index: 1;
+  }
+  .hero-card-float {
+    background: var(--white); border: 1px solid var(--parchment);
+    border-radius: var(--r-xl); padding: 2rem;
+    box-shadow: var(--shadow-med), 0 0 0 1px rgba(255,255,255,0.8);
+    max-width: 760px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;
+  }
+  .float-stat {
+    text-align: left; padding: 1.2rem;
+    background: var(--cream); border-radius: var(--r-md);
+    border: 1px solid var(--cream-dark);
+  }
+  .float-stat-label {
+    font-family: 'DM Mono', monospace; font-size: 0.65rem; font-weight: 400;
+    color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+  }
+  .float-stat-value {
+    font-family: 'Cormorant Garamond', serif; font-size: 2rem; font-weight: 500;
+    color: var(--ink); line-height: 1;
+  }
+  .float-stat-sub { font-size: 0.75rem; color: var(--olive); margin-top: 4px; font-weight: 500; }
+
+  .flow-row {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 0; justify-content: center;
+    background: var(--lavender-pale); border-radius: var(--r-md); padding: 1rem 1.5rem;
+  }
+  .flow-step {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex: 1;
+  }
+  .flow-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .flow-icon.cream { background: var(--cream-dark); }
+  .flow-icon.olive { background: var(--olive-mist); }
+  .flow-icon.lavender { background: var(--lavender-light); }
+  .flow-label { font-size: 0.68rem; color: var(--ink-soft); font-weight: 500; text-align: center; }
+  .flow-arrow { color: var(--lavender); font-size: 1.2rem; padding: 0 0.5rem; flex-shrink: 0; }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SECTION WRAPPER ── */
+  .section { padding: 6rem 2rem; }
+  .section-inner { max-width: 1080px; margin: 0 auto; }
+  .section-label {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem; font-weight: 400;
+    color: var(--olive); letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3rem); font-weight: 500; line-height: 1.15;
+    color: var(--ink); margin-bottom: 1rem;
+  }
+  .section-sub { font-size: 1rem; color: var(--ink-soft); line-height: 1.7; max-width: 520px; }
+
+  /* ── HOW IT WORKS ── */
+  .how-section { background: var(--white); }
+  .steps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-top: 3.5rem; }
+  .step-card {
+    padding: 1.8rem 1.5rem;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--cream-dark);
+    position: relative; overflow: hidden;
+    transition: transform 0.25s, box-shadow 0.25s;
+  }
+  .step-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-med); }
+  .step-card.s1 { background: var(--cream); }
+  .step-card.s2 { background: var(--olive-mist); }
+  .step-card.s3 { background: var(--lavender-pale); }
+  .step-card.s4 { background: var(--blush-light); }
+  .step-num {
+    font-family: 'Cormorant Garamond', serif; font-size: 3.5rem; font-weight: 300;
+    color: rgba(42,40,32,0.1); position: absolute; top: -0.5rem; right: 1rem;
+    line-height: 1;
+  }
+  .step-icon { font-size: 1.6rem; margin-bottom: 1rem; }
+  .step-title {
+    font-size: 0.95rem; font-weight: 600; color: var(--ink);
+    margin-bottom: 0.5rem; letter-spacing: 0.01em;
+  }
+  .step-desc { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.6; }
+  .step-tag {
+    display: inline-block; margin-top: 0.8rem;
+    font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.08em;
+    padding: 3px 8px; border-radius: 100px; text-transform: uppercase;
+  }
+  .tag-olive { background: rgba(107,124,92,0.15); color: var(--olive-dark); }
+  .tag-lavender { background: rgba(184,169,201,0.2); color: var(--lavender-dark); }
+  .tag-blush { background: rgba(212,184,160,0.25); color: #8B6050; }
+  .tag-ink { background: rgba(42,40,32,0.1); color: var(--ink-mid); }
+
+  /* ── PRICING ── */
+  .pricing-section { background: var(--cream); }
+  .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 3.5rem; }
+  .plan-card {
+    border-radius: var(--r-lg); padding: 2rem;
+    border: 1px solid var(--parchment);
+    transition: transform 0.25s, box-shadow 0.25s;
+    position: relative; overflow: hidden;
+  }
+  .plan-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-med); }
+  .plan-card.starter { background: var(--white); }
+  .plan-card.pro { background: var(--ink); color: var(--cream); }
+  .plan-card.enterprise { background: var(--lavender-pale); }
+  .plan-badge {
+    display: inline-block; margin-bottom: 1.5rem;
+    font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 100px;
+  }
+  .badge-starter { background: var(--olive-mist); color: var(--olive-dark); }
+  .badge-pro { background: rgba(247,243,236,0.15); color: var(--cream-dark); }
+  .badge-enterprise { background: var(--lavender-light); color: var(--lavender-dark); }
+  .plan-price {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 3rem; font-weight: 500; line-height: 1; margin-bottom: 0.25rem;
+  }
+  .plan-currency { font-size: 1.2rem; font-weight: 400; }
+  .plan-period { font-size: 0.85rem; opacity: 0.6; margin-bottom: 1.5rem; }
+  .plan-features { list-style: none; margin-bottom: 2rem; }
+  .plan-features li {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 0.85rem; padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(42,40,32,0.06);
+    line-height: 1.5;
+  }
+  .plan-card.pro .plan-features li { border-bottom-color: rgba(247,243,236,0.1); }
+  .plan-features li .check { color: var(--olive); font-size: 0.9rem; flex-shrink: 0; }
+  .plan-card.pro .plan-features li .check { color: var(--gold-light); }
+  .plan-btn {
+    width: 100%; padding: 0.75rem; border-radius: 100px;
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 0.875rem; font-weight: 600; letter-spacing: 0.03em;
+    border: none; cursor: pointer; transition: opacity 0.2s, transform 0.2s;
+  }
+  .plan-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-starter { background: var(--ink); color: var(--cream); }
+  .btn-pro { background: var(--cream); color: var(--ink); }
+  .btn-enterprise { background: var(--lavender-dark); color: var(--white); }
+  .plan-popular {
+    position: absolute; top: 1.5rem; right: 1.5rem;
+    background: var(--gold); color: var(--ink);
+    font-family: 'DM Mono', monospace; font-size: 0.55rem; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 100px;
+  }
+
+  /* ── DASHBOARD SECTION ── */
+  .dashboard-section { background: var(--ink); padding: 6rem 2rem; }
+  .dashboard-inner { max-width: 1080px; margin: 0 auto; }
+  .dash-label {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--olive-light);
+    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 1rem;
+  }
+  .dash-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3rem); font-weight: 500;
+    color: var(--cream); margin-bottom: 0.75rem;
+  }
+  .dash-sub { font-size: 1rem; color: rgba(247,243,236,0.5); line-height: 1.7; max-width: 480px; margin-bottom: 3rem; }
+
+  /* Dashboard UI mockup */
+  .dash-ui {
+    background: var(--cream); border-radius: var(--r-xl);
+    overflow: hidden; box-shadow: 0 32px 80px rgba(0,0,0,0.4);
+  }
+  .dash-topbar {
+    background: var(--white); padding: 1rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--cream-dark);
+  }
+  .dash-logo {
+    font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 600;
+    color: var(--ink); display: flex; align-items: center; gap: 6px;
+  }
+  .dash-nav-items { display: flex; gap: 1.5rem; }
+  .dash-nav-item {
+    font-size: 0.78rem; font-weight: 500; color: var(--ink-soft);
+    padding: 0.35rem 0.8rem; border-radius: 100px; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .dash-nav-item.active { background: var(--olive); color: var(--white); }
+  .dash-nav-item:not(.active):hover { background: var(--cream); }
+  .dash-user {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.78rem; color: var(--ink-mid);
+  }
+  .dash-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--olive-mist); display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 600; color: var(--olive-dark);
+  }
+
+  .dash-body { display: grid; grid-template-columns: 200px 1fr; min-height: 520px; }
+  .dash-sidebar {
+    background: var(--cream); padding: 1.5rem 1rem;
+    border-right: 1px solid var(--cream-dark);
+  }
+  .sidebar-section-label {
+    font-family: 'DM Mono', monospace; font-size: 0.58rem; font-weight: 400;
+    color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 0 0.6rem; margin-bottom: 0.5rem; margin-top: 1rem;
+  }
+  .sidebar-section-label:first-child { margin-top: 0; }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0.5rem 0.6rem; border-radius: var(--r-sm);
+    font-size: 0.78rem; color: var(--ink-mid); cursor: pointer;
+    transition: background 0.15s; font-weight: 500;
+  }
+  .sidebar-item:hover { background: var(--cream-dark); }
+  .sidebar-item.active { background: var(--white); color: var(--ink); box-shadow: var(--shadow-soft); }
+  .sidebar-icon { font-size: 0.85rem; }
+
+  .dash-main { padding: 1.5rem; background: var(--cream); }
+  .dash-page-title {
+    font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 500;
+    color: var(--ink); margin-bottom: 0.25rem;
+  }
+  .dash-page-sub { font-size: 0.75rem; color: var(--ink-soft); margin-bottom: 1.5rem; }
+
+  .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+  .metric-card {
+    background: var(--white); border-radius: var(--r-md);
+    padding: 1.1rem; border: 1px solid var(--cream-dark);
+  }
+  .metric-label {
+    font-family: 'DM Mono', monospace; font-size: 0.58rem;
+    color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem;
+  }
+  .metric-value {
+    font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 500;
+    color: var(--ink); line-height: 1; margin-bottom: 2px;
+  }
+  .metric-change {
+    font-size: 0.65rem; font-weight: 500;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .change-up { color: var(--olive); }
+  .change-flat { color: var(--ink-soft); }
+
+  .dash-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .dash-widget {
+    background: var(--white); border-radius: var(--r-md);
+    padding: 1.1rem; border: 1px solid var(--cream-dark);
+  }
+  .widget-title {
+    font-size: 0.78rem; font-weight: 600; color: var(--ink);
+    margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;
+  }
+  .widget-badge {
+    font-family: 'DM Mono', monospace; font-size: 0.55rem; padding: 2px 6px;
+    border-radius: 100px; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .wb-live { background: rgba(107,124,92,0.15); color: var(--olive-dark); }
+  .wb-sync { background: var(--lavender-pale); color: var(--lavender-dark); }
+
+  /* Bar chart */
+  .mini-chart { display: flex; align-items: flex-end; gap: 5px; height: 70px; padding-top: 0.5rem; }
+  .bar-group { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+  .bar {
+    width: 100%; border-radius: 3px 3px 0 0;
+    transition: opacity 0.2s;
+  }
+  .bar:hover { opacity: 0.75; }
+  .bar.revenue { background: var(--olive); }
+  .bar.settlement { background: var(--lavender); }
+  .bar-month { font-family: 'DM Mono', monospace; font-size: 0.5rem; color: var(--ink-soft); }
+
+  /* Subscription table */
+  .sub-table { width: 100%; border-collapse: collapse; }
+  .sub-table th {
+    font-family: 'DM Mono', monospace; font-size: 0.55rem;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft);
+    text-align: left; padding: 0 0 0.5rem; border-bottom: 1px solid var(--cream-dark);
+  }
+  .sub-table td { padding: 0.55rem 0; font-size: 0.73rem; color: var(--ink-mid); border-bottom: 1px solid rgba(42,40,32,0.05); }
+  .status-pill {
+    display: inline-block; font-size: 0.6rem; padding: 2px 7px;
+    border-radius: 100px; font-weight: 500;
+  }
+  .sp-active { background: rgba(107,124,92,0.15); color: var(--olive-dark); }
+  .sp-trial { background: var(--lavender-pale); color: var(--lavender-dark); }
+  .sp-paused { background: var(--blush-light); color: #8B6050; }
+
+  /* Agent flow widget */
+  .agent-flow {
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .agent-event {
+    display: flex; align-items: center; gap: 8px; padding: 0.45rem 0.6rem;
+    border-radius: var(--r-sm); font-size: 0.72rem;
+    border: 1px solid transparent;
+  }
+  .ae-time { font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--ink-soft); min-width: 45px; }
+  .ae-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .ae-dot.green { background: var(--olive); }
+  .ae-dot.blue { background: var(--lavender-dark); }
+  .ae-dot.gold { background: var(--gold); }
+  .ae-text { flex: 1; color: var(--ink-mid); }
+  .ae-amount { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--olive); font-weight: 500; }
+  .ae-row-active { background: rgba(107,124,92,0.06); border-color: rgba(107,124,92,0.15); }
+
+  /* Credit meter */
+  .credit-bar-wrap { margin-top: 0.5rem; }
+  .credit-bar-label {
+    display: flex; justify-content: space-between;
+    font-size: 0.7rem; color: var(--ink-soft); margin-bottom: 4px;
+  }
+  .credit-bar-bg { background: var(--cream-dark); border-radius: 100px; height: 6px; overflow: hidden; margin-bottom: 10px; }
+  .credit-bar-fill { height: 100%; border-radius: 100px; transition: width 1s ease; }
+  .cbf-1 { background: var(--olive); width: 72%; }
+  .cbf-2 { background: var(--lavender); width: 45%; }
+  .cbf-3 { background: var(--blush); width: 88%; }
+
+  /* Settlement ticker */
+  .settlement-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.5rem 0; border-bottom: 1px solid rgba(42,40,32,0.05);
+    font-size: 0.72rem;
+  }
+  .settle-hash {
+    font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--lavender-dark);
+  }
+  .settle-amount { font-weight: 600; color: var(--ink); }
+  .settle-status { font-size: 0.6rem; color: var(--olive); font-weight: 500; }
+
+  /* ── FEATURES ── */
+  .features-section { background: var(--cream-dark); }
+  .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 3.5rem; }
+  .feature-card {
+    background: var(--white); border-radius: var(--r-lg); padding: 1.8rem;
+    border: 1px solid var(--parchment);
+    transition: transform 0.25s, box-shadow 0.25s;
+  }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-med); }
+  .feature-icon {
+    width: 44px; height: 44px; border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 1rem;
+  }
+  .fi-olive { background: var(--olive-mist); }
+  .fi-lavender { background: var(--lavender-pale); }
+  .fi-blush { background: var(--blush-light); }
+  .fi-cream { background: var(--cream); border: 1px solid var(--cream-dark); }
+  .feature-title { font-size: 0.95rem; font-weight: 600; color: var(--ink); margin-bottom: 0.5rem; }
+  .feature-desc { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.7; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--ink); color: rgba(247,243,236,0.5);
+    padding: 3rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+  }
+  .footer-logo {
+    font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 600;
+    color: var(--cream);
+  }
+  .footer-tagline { font-size: 0.78rem; margin-top: 4px; }
+  .footer-links { display: flex; gap: 1.5rem; }
+  .footer-links a { font-size: 0.78rem; color: rgba(247,243,236,0.4); text-decoration: none; }
+  .footer-links a:hover { color: var(--olive-light); }
+  .footer-built {
+    font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    background: rgba(247,243,236,0.06); padding: 0.4rem 0.8rem;
+    border-radius: 100px; border: 1px solid rgba(247,243,236,0.1);
+  }
+
+  /* ── VIEW TOGGLE ── */
+  .view-toggle {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 200;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toggle-btn {
+    background: var(--ink); color: var(--cream);
+    border: none; border-radius: 100px; padding: 0.6rem 1.2rem;
+    font-family: 'Instrument Sans', sans-serif; font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; box-shadow: var(--shadow-med);
+    transition: background 0.2s, transform 0.2s;
+    white-space: nowrap;
+  }
+  .toggle-btn:hover { background: var(--olive); transform: scale(1.04); }
+  .toggle-btn.active-view { background: var(--olive); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    nav { padding: 1rem 1.5rem; }
+    .nav-links { display: none; }
+    .steps-grid, .plans-grid, .features-grid { grid-template-columns: 1fr; }
+    .metrics-row { grid-template-columns: 1fr 1fr; }
+    .dash-grid2 { grid-template-columns: 1fr; }
+    .hero-card-float { grid-template-columns: 1fr; }
+    .dash-body { grid-template-columns: 1fr; }
+    .dash-sidebar { display: none; }
+  }
+
+  /* Animated pulse for live indicators */
+  .live-badge::before {
+    content: ''; display: inline-block;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--olive); margin-right: 5px;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <span class="logo-dot"></span>
+    DodoArc
+  </div>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#dashboard" class="nav-cta">Get Started →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="hero-grain"></div>
+  <div class="hero-inner">
+    <div class="hero-eyebrow">
+      <span class="eyebrow-dot"></span>
+      Colosseum Frontier 2026 · Dodo Payments Track
+    </div>
+    <h1 class="hero-title">
+      The <em>billing OS</em><br>for <span class="lavender-word">AI agent</span> products
+    </h1>
+    <p class="hero-sub">
+      Sell subscriptions in INR. Let users pay with UPI. Let agents settle tool calls in USDC on Solana. One platform — fiat in, programmable settlement out.
+    </p>
+    <div class="hero-actions">
+      <a href="#dashboard" class="btn-primary">View Dashboard →</a>
+      <a href="#how" class="btn-secondary">See how it works</a>
+    </div>
+
+    <div class="hero-visual">
+      <div class="hero-card-float">
+        <div class="float-stat">
+          <div class="float-stat-label">Monthly Fiat Revenue</div>
+          <div class="float-stat-value">₹2.4L</div>
+          <div class="float-stat-sub">↑ 38% this month</div>
+        </div>
+        <div class="float-stat">
+          <div class="float-stat-label">Agent Credits Used</div>
+          <div class="float-stat-value">48.2K</div>
+          <div class="float-stat-sub">Across 3 active agents</div>
+        </div>
+        <div class="float-stat">
+          <div class="float-stat-label">USDC Settled (Solana)</div>
+          <div class="float-stat-value">$840</div>
+          <div class="float-stat-sub">via x402 · last 24h</div>
+        </div>
+        <div class="flow-row">
+          <div class="flow-step">
+            <div class="flow-icon cream">📱</div>
+            <div class="flow-label">User pays UPI</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-icon olive">🪝</div>
+            <div class="flow-label">Dodo webhook fires</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-icon lavender">🤖</div>
+            <div class="flow-label">Credits activated</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-icon olive">⚡</div>
+            <div class="flow-label">Agent runs</div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">
+            <div class="flow-icon cream">◎</div>
+            <div class="flow-label">USDC settles on Solana</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section how-section" id="how">
+  <div class="section-inner">
+    <div class="section-label">The flow</div>
+    <h2 class="section-title">Fiat in. USDC out.<br>Nothing in between.</h2>
+    <p class="section-sub">DodoArc connects the human payment layer to the agent settlement layer — the missing bridge between Dodo Payments and Solana.</p>
+    <div class="steps-grid">
+      <div class="step-card s1">
+        <div class="step-num">01</div>
+        <div class="step-icon">🏪</div>
+        <div class="step-title">Create your plan</div>
+        <div class="step-desc">Define subscription plans, credit packs, or usage tiers. Set per-unit credit cost for every agent action.</div>
+        <span class="step-tag tag-ink">Dodo Dashboard</span>
+      </div>
+      <div class="step-card s2">
+        <div class="step-num">02</div>
+        <div class="step-icon">📲</div>
+        <div class="step-title">User pays with UPI</div>
+        <div class="step-desc">Your users see a native Dodo checkout — UPI, card, Klarna, 150 countries. No Phantom wallet required.</div>
+        <span class="step-tag tag-olive">Dodo Payments</span>
+      </div>
+      <div class="step-card s3">
+        <div class="step-num">03</div>
+        <div class="step-icon">🪝</div>
+        <div class="step-title">Webhook activates access</div>
+        <div class="step-desc">Dodo fires a webhook. DodoArc middleware grants credits or subscription access instantly. Zero manual work.</div>
+        <span class="step-tag tag-lavender">Webhook API</span>
+      </div>
+      <div class="step-card s4">
+        <div class="step-num">04</div>
+        <div class="step-icon">⛓️</div>
+        <div class="step-title">x402 USDC settlement</div>
+        <div class="step-desc">When your agent calls a paid tool or MCP server, x402 headers trigger USDC micropayment on Solana in 400ms.</div>
+        <span class="step-tag tag-blush">Solana · x402</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section features-section" id="features">
+  <div class="section-inner">
+    <div class="section-label">What's inside</div>
+    <h2 class="section-title">Everything a builder needs.<br>Nothing they don't.</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon fi-olive">🧾</div>
+        <div class="feature-title">Dodo Checkout Embed</div>
+        <div class="feature-desc">One-line embed for any web page. Supports INR, USD, EUR. UPI, cards, Klarna, PhonePe. Handles tax and compliance automatically.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-lavender">🎛️</div>
+        <div class="feature-title">Usage Credit Engine</div>
+        <div class="feature-desc">Define credit costs per agent action. Subscriptions allocate monthly credits. Pay-as-you-go credit packs. Real-time deduction on every run.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-blush">🪝</div>
+        <div class="feature-title">Webhook Middleware</div>
+        <div class="feature-desc">DodoArc receives Dodo payment events and automatically activates or pauses user access. Retry logic included. Zero manual ops.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-cream">◎</div>
+        <div class="feature-title">x402 USDC Settlement</div>
+        <div class="feature-desc">When your agent calls a paid MCP tool, x402 payment headers settle USDC on Solana automatically. 400ms. No wallet UX for the user.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-olive">📊</div>
+        <div class="feature-title">Unified Revenue Dashboard</div>
+        <div class="feature-desc">See fiat revenue, credit consumption, agent run counts, and Solana settlement receipts — all in one screen. ARR visible from day one.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon fi-lavender">🔗</div>
+        <div class="feature-title">Solana Wallet Link</div>
+        <div class="feature-desc">Link a Phantom wallet to receive consolidated USDC settlement. One-click withdrawal. On-chain receipt for every settlement event.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section pricing-section" id="pricing">
+  <div class="section-inner">
+    <div class="section-label">Pricing</div>
+    <h2 class="section-title">Start free. Scale as you grow.</h2>
+    <p class="section-sub">No fixed costs while you're building. Revenue share only when you earn.</p>
+    <div class="plans-grid">
+      <div class="plan-card starter">
+        <div class="plan-badge badge-starter">Starter</div>
+        <div class="plan-price"><span class="plan-currency">₹</span>0</div>
+        <div class="plan-period">Free forever</div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> 1 agent product</li>
+          <li><span class="check">✓</span> 50 subscribers</li>
+          <li><span class="check">✓</span> Dodo checkout embed</li>
+          <li><span class="check">✓</span> Basic webhook handling</li>
+          <li><span class="check">✓</span> Credit deduction engine</li>
+          <li><span class="check">✓</span> 5% revenue share</li>
+        </ul>
+        <button class="plan-btn btn-starter">Get started free</button>
+      </div>
+      <div class="plan-card pro">
+        <div class="plan-popular">Most Popular</div>
+        <div class="plan-badge badge-pro">Pro</div>
+        <div class="plan-price"><span class="plan-currency">₹</span>2,999</div>
+        <div class="plan-period">per month · billed monthly</div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> Unlimited agent products</li>
+          <li><span class="check">✓</span> Unlimited subscribers</li>
+          <li><span class="check">✓</span> x402 USDC settlement</li>
+          <li><span class="check">✓</span> Solana wallet integration</li>
+          <li><span class="check">✓</span> Advanced analytics</li>
+          <li><span class="check">✓</span> 2% revenue share</li>
+        </ul>
+        <button class="plan-btn btn-pro">Start Pro trial</button>
+      </div>
+      <div class="plan-card enterprise">
+        <div class="plan-badge badge-enterprise">Enterprise</div>
+        <div class="plan-price"><span class="plan-currency">₹</span>Custom</div>
+        <div class="plan-period">volume pricing</div>
+        <ul class="plan-features">
+          <li><span class="check">✓</span> Everything in Pro</li>
+          <li><span class="check">✓</span> Custom credit schemas</li>
+          <li><span class="check">✓</span> Multi-wallet settlement</li>
+          <li><span class="check">✓</span> SLA + dedicated support</li>
+          <li><span class="check">✓</span> White-label checkout</li>
+          <li><span class="check">✓</span> 0.5% revenue share</li>
+        </ul>
+        <button class="plan-btn btn-enterprise">Contact us</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD DEMO -->
+<section class="dashboard-section" id="dashboard">
+  <div class="dashboard-inner">
+    <div class="dash-label">Live dashboard</div>
+    <h2 class="dash-title">Your agent business,<br>at a glance.</h2>
+    <p class="dash-sub">Fiat revenue, credit usage, agent events, and Solana settlement — one screen, real-time.</p>
+
+    <div class="dash-ui">
+      <!-- Top Bar -->
+      <div class="dash-topbar">
+        <div class="dash-logo">
+          <span style="color:var(--olive);font-size:0.9rem;">●</span> DodoArc
+        </div>
+        <div class="dash-nav-items">
+          <div class="dash-nav-item active">Overview</div>
+          <div class="dash-nav-item">Subscribers</div>
+          <div class="dash-nav-item">Agents</div>
+          <div class="dash-nav-item">Settlement</div>
+          <div class="dash-nav-item">Settings</div>
+        </div>
+        <div class="dash-user">
+          <div class="dash-avatar">DA</div>
+          DodoArc Demo
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="dash-body">
+        <!-- Sidebar -->
+        <div class="dash-sidebar">
+          <div class="sidebar-section-label">Main</div>
+          <div class="sidebar-item active"><span class="sidebar-icon">▦</span> Overview</div>
+          <div class="sidebar-item"><span class="sidebar-icon">👥</span> Subscribers</div>
+          <div class="sidebar-item"><span class="sidebar-icon">🤖</span> Agents</div>
+
+          <div class="sidebar-section-label">Revenue</div>
+          <div class="sidebar-item"><span class="sidebar-icon">₹</span> Fiat Revenue</div>
+          <div class="sidebar-item"><span class="sidebar-icon">◎</span> USDC Settlement</div>
+          <div class="sidebar-item"><span class="sidebar-icon">🎛️</span> Credits</div>
+
+          <div class="sidebar-section-label">Dev</div>
+          <div class="sidebar-item"><span class="sidebar-icon">🪝</span> Webhooks</div>
+          <div class="sidebar-item"><span class="sidebar-icon">🔑</span> API Keys</div>
+          <div class="sidebar-item"><span class="sidebar-icon">📋</span> Docs</div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="dash-main">
+          <div class="dash-page-title">Overview</div>
+          <div class="dash-page-sub">
+            <span class="live-badge" style="font-size:0.7rem;color:var(--olive);font-weight:500;">LIVE</span>
+            Last updated 12 seconds ago
+          </div>
+
+          <!-- Metrics -->
+          <div class="metrics-row">
+            <div class="metric-card">
+              <div class="metric-label">Fiat Revenue (MoM)</div>
+              <div class="metric-value">₹2.4L</div>
+              <div class="metric-change change-up">↑ 38% from last month</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Active Subscribers</div>
+              <div class="metric-value">142</div>
+              <div class="metric-change change-up">↑ 12 new this week</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Credits Consumed</div>
+              <div class="metric-value">48.2K</div>
+              <div class="metric-change change-flat">3 active agents</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">USDC Settled</div>
+              <div class="metric-value">$840</div>
+              <div class="metric-change change-up">↑ via x402 today</div>
+            </div>
+          </div>
+
+          <!-- Two column -->
+          <div class="dash-grid2">
+            <!-- Revenue Chart -->
+            <div class="dash-widget">
+              <div class="widget-title">
+                Revenue (6 months)
+                <span class="widget-badge wb-live">Live</span>
+              </div>
+              <div class="mini-chart">
+                <div class="bar-group"><div class="bar revenue" style="height:35px;"></div><div class="bar settlement" style="height:20px;"></div><div class="bar-month">Dec</div></div>
+                <div class="bar-group"><div class="bar revenue" style="height:42px;"></div><div class="bar settlement" style="height:25px;"></div><div class="bar-month">Jan</div></div>
+                <div class="bar-group"><div class="bar revenue" style="height:38px;"></div><div class="bar settlement" style="height:22px;"></div><div class="bar-month">Feb</div></div>
+                <div class="bar-group"><div class="bar revenue" style="height:55px;"></div><div class="bar settlement" style="height:32px;"></div><div class="bar-month">Mar</div></div>
+                <div class="bar-group"><div class="bar revenue" style="height:62px;"></div><div class="bar settlement" style="height:40px;"></div><div class="bar-month">Apr</div></div>
+                <div class="bar-group"><div class="bar revenue" style="height:68px;"></div><div class="bar settlement" style="height:48px;"></div><div class="bar-month">May</div></div>
+              </div>
+              <div style="display:flex;gap:12px;margin-top:8px;">
+                <div style="display:flex;align-items:center;gap:4px;font-size:0.65rem;color:var(--ink-soft);">
+                  <span style="width:8px;height:8px;background:var(--olive);border-radius:2px;display:inline-block;"></span> Fiat (INR)
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;font-size:0.65rem;color:var(--ink-soft);">
+                  <span style="width:8px;height:8px;background:var(--lavender);border-radius:2px;display:inline-block;"></span> USDC
+                </div>
+              </div>
+            </div>
+
+            <!-- Agent Feed -->
+            <div class="dash-widget">
+              <div class="widget-title">
+                Agent Activity
+                <span class="widget-badge wb-live">Live</span>
+              </div>
+              <div class="agent-flow">
+                <div class="agent-event ae-row-active">
+                  <span class="ae-time">14:32</span>
+                  <span class="ae-dot green"></span>
+                  <span class="ae-text">Trading Agent · run completed</span>
+                  <span class="ae-amount">−10 cr</span>
+                </div>
+                <div class="agent-event ae-row-active">
+                  <span class="ae-time">14:31</span>
+                  <span class="ae-dot blue"></span>
+                  <span class="ae-text">x402 → Perplexity MCP tool</span>
+                  <span class="ae-amount">0.001 USDC</span>
+                </div>
+                <div class="agent-event">
+                  <span class="ae-time">14:28</span>
+                  <span class="ae-dot green"></span>
+                  <span class="ae-text">Webhook → user_0x4a2 activated</span>
+                  <span class="ae-amount">+500 cr</span>
+                </div>
+                <div class="agent-event">
+                  <span class="ae-time">14:22</span>
+                  <span class="ae-dot gold"></span>
+                  <span class="ae-text">UPI payment ₹3,000 received</span>
+                  <span class="ae-amount">confirmed</span>
+                </div>
+                <div class="agent-event">
+                  <span class="ae-time">14:18</span>
+                  <span class="ae-dot green"></span>
+                  <span class="ae-text">Research Agent · run completed</span>
+                  <span class="ae-amount">−25 cr</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Credit Usage -->
+            <div class="dash-widget">
+              <div class="widget-title">
+                Credit Usage by Agent
+                <span class="widget-badge wb-sync">Synced</span>
+              </div>
+              <div class="credit-bar-wrap">
+                <div class="credit-bar-label"><span>Trading Agent Pro</span><span>36,100 / 50,000</span></div>
+                <div class="credit-bar-bg"><div class="credit-bar-fill cbf-1"></div></div>
+                <div class="credit-bar-label"><span>Research Assistant</span><span>5,400 / 12,000</span></div>
+                <div class="credit-bar-bg"><div class="credit-bar-fill cbf-2"></div></div>
+                <div class="credit-bar-label"><span>DeFi Signal Bot</span><span>6,700 / 7,600</span></div>
+                <div class="credit-bar-bg"><div class="credit-bar-fill cbf-3"></div></div>
+              </div>
+            </div>
+
+            <!-- Settlement -->
+            <div class="dash-widget">
+              <div class="widget-title">
+                Solana Settlements (x402)
+                <span class="widget-badge wb-sync">On-chain</span>
+              </div>
+              <div class="settlement-row">
+                <div>
+                  <div class="settle-hash">5Kg3...mR7x</div>
+                  <div style="font-size:0.65rem;color:var(--ink-soft);">Perplexity MCP · 2 min ago</div>
+                </div>
+                <div class="settle-amount">0.0014 USDC</div>
+                <div class="settle-status">✓ Confirmed</div>
+              </div>
+              <div class="settlement-row">
+                <div>
+                  <div class="settle-hash">9Pq1...hJ2k</div>
+                  <div style="font-size:0.65rem;color:var(--ink-soft);">Helios API · 8 min ago</div>
+                </div>
+                <div class="settle-amount">0.0022 USDC</div>
+                <div class="settle-status">✓ Confirmed</div>
+              </div>
+              <div class="settlement-row">
+                <div>
+                  <div class="settle-hash">2Rn8...vW5s</div>
+                  <div style="font-size:0.65rem;color:var(--ink-soft);">DataFeed MCP · 14 min ago</div>
+                </div>
+                <div class="settle-amount">0.0008 USDC</div>
+                <div class="settle-status">✓ Confirmed</div>
+              </div>
+              <div style="margin-top:10px;padding:6px 8px;background:var(--olive-mist);border-radius:var(--r-sm);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.7rem;color:var(--olive-dark);font-weight:500;">Total settled today</span>
+                <span style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--olive-dark);font-weight:600;">0.0044 USDC</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subscriber Table -->
+          <div class="dash-widget">
+            <div class="widget-title">
+              Recent Subscribers
+              <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--ink-soft);">142 total</span>
+            </div>
+            <table class="sub-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Plan</th>
+                  <th>Payment Method</th>
+                  <th>Credits Left</th>
+                  <th>Status</th>
+                  <th>Since</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>rohit.sharma@gmail.com</td>
+                  <td>Pro · ₹2,999/mo</td>
+                  <td>UPI · PhonePe</td>
+                  <td>412 / 1,000</td>
+                  <td><span class="status-pill sp-active">Active</span></td>
+                  <td>Apr 28</td>
+                </tr>
+                <tr>
+                  <td>priya.m@outlook.com</td>
+                  <td>Starter · Free</td>
+                  <td>Card · Razorpay</td>
+                  <td>48 / 100</td>
+                  <td><span class="status-pill sp-trial">Trial</span></td>
+                  <td>May 1</td>
+                </tr>
+                <tr>
+                  <td>ankit.dev@proton.me</td>
+                  <td>Pro · ₹2,999/mo</td>
+                  <td>UPI · GPay</td>
+                  <td>0 / 1,000</td>
+                  <td><span class="status-pill sp-paused">Paused</span></td>
+                  <td>Mar 15</td>
+                </tr>
+                <tr>
+                  <td>deepa.k@yahoo.com</td>
+                  <td>Pro · ₹2,999/mo</td>
+                  <td>UPI · PhonePe</td>
+                  <td>876 / 1,000</td>
+                  <td><span class="status-pill sp-active">Active</span></td>
+                  <td>May 3</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div><!-- /.dash-main -->
+      </div><!-- /.dash-body -->
+    </div><!-- /.dash-ui -->
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="footer-logo">DodoArc</div>
+    <div class="footer-tagline">Billing OS for AI agent products on Solana.</div>
+  </div>
+  <div class="footer-links">
+    <a href="#">Docs</a>
+    <a href="#">GitHub</a>
+    <a href="#">Discord</a>
+    <a href="#">Colosseum</a>
+  </div>
+  <div class="footer-built">Built for Colosseum Frontier 2026</div>
+</footer>
+
+<!-- View Toggle -->
+<div class="view-toggle">
+  <button class="toggle-btn" onclick="document.getElementById('home').scrollIntoView({behavior:'smooth'})">↑ Landing</button>
+  <button class="toggle-btn" onclick="document.getElementById('dashboard').scrollIntoView({behavior:'smooth'})">⊞ Dashboard</button>
+</div>
+
+<script>
+  // Animate bars on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) e.target.style.opacity = '1';
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.step-card, .feature-card, .plan-card').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(16px)';
+    el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    observer.observe(el);
+  });
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => {
+          e.target.style.opacity = '1';
+          e.target.style.transform = 'translateY(0)';
+        }, i * 80);
+      }
+    });
+  }, { threshold: 0.05 });
+  document.querySelectorAll('.step-card, .feature-card, .plan-card').forEach(el => revealObserver.observe(el));
+
+  // Nav active state
+  document.querySelectorAll('.dash-nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.dash-nav-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.sidebar-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
