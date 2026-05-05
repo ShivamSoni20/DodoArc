@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DodoArc — Billing OS for AI Agent Products</title>
+<title>DodoArc ? Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -571,240 +571,52 @@
     background: var(--olive); margin-right: 5px;
     animation: pulse-dot 2s ease-in-out infinite;
   }
+
+  .db-page-wrap { min-height: 100vh; display: flex; flex-direction: column; background: var(--cream); }
+  .db-topbar { background: var(--white); padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--cream-dark); position: sticky; top: 0; z-index: 10; }
+  .db-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 6px; text-decoration: none; }
+  .db-back-link { font-size: 0.78rem; color: var(--ink-soft); text-decoration: none; display: flex; align-items: center; gap: 4px; padding: 0.4rem 0.8rem; border-radius: 100px; border: 1px solid var(--cream-dark); transition: border-color 0.2s, color 0.2s; }
+  .db-back-link:hover { border-color: var(--olive-mist); color: var(--olive); }
+  .db-body { display: flex; flex: 1; min-height: 0; }
+  .db-sidebar { width: 210px; background: var(--cream); padding: 1.25rem 0.75rem; border-right: 1px solid var(--cream-dark); flex-shrink: 0; }
+  .db-main { flex: 1; min-width: 0; padding: 1.5rem; overflow-y: auto; background: var(--cream); }
+  .webhook-table { width: 100%; border-collapse: collapse; font-size: 0.73rem; }
+  .webhook-table th { font-family: 'DM Mono', monospace; font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); text-align: left; padding: 0 0 0.5rem; border-bottom: 1px solid var(--cream-dark); }
+  .webhook-table td { padding: 0.5rem 0.25rem; border-bottom: 1px solid rgba(42,40,32,0.05); color: var(--ink-mid); }
+  .wh-hash { font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--lavender-dark); }
+  .wh-ok { color: var(--olive); font-weight: 600; font-size: 0.65rem; }
+  .wh-fail { color: #A32D2D; font-weight: 600; font-size: 0.65rem; }
+  .wh-pending { color: var(--gold); font-weight: 600; font-size: 0.65rem; }
+  @media (max-width: 768px) { .db-body { flex-direction: column; } .db-sidebar { width: 100%; display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--cream-dark); } .sidebar-section-label { display: none; } .sidebar-item { white-space: nowrap; } }
+
 </style>
 </head>
 <body>
-
-<!-- NAV -->
-<nav>
-  <div class="nav-logo">
-    <span class="logo-dot"></span>
-    DodoArc
-  </div>
-  <div class="nav-links">
-    <a href="#how">How it works</a>
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="/dashboard">Dashboard</a>
-    <a href="#dashboard" class="nav-cta">Get Started →</a>
-  </div>
-</nav>
-
-<!-- HERO -->
-<section class="hero" id="home">
-  <div class="hero-bg"></div>
-  <div class="hero-grain"></div>
-  <div class="hero-inner">
-    <div class="hero-eyebrow">
-      <span class="eyebrow-dot"></span>
-      Colosseum Frontier 2026 · Dodo Payments Track
-    </div>
-    <h1 class="hero-title">
-      The <em>billing OS</em><br>for <span class="lavender-word">AI agent</span> products
-    </h1>
-    <p class="hero-sub">
-      Sell subscriptions in INR. Let users pay with UPI. Let agents settle tool calls in USDC on Solana. One platform — fiat in, programmable settlement out.
-    </p>
-    <div class="hero-actions">
-      <a href="#dashboard" class="btn-primary">View Dashboard →</a>
-      <a href="#how" class="btn-secondary">See how it works</a>
-    </div>
-
-    <div class="hero-visual">
-      <div class="hero-card-float">
-        <div class="float-stat">
-          <div class="float-stat-label">Monthly Fiat Revenue</div>
-          <div class="float-stat-value">₹2.4L</div>
-          <div class="float-stat-sub">↑ 38% this month</div>
-        </div>
-        <div class="float-stat">
-          <div class="float-stat-label">Agent Credits Used</div>
-          <div class="float-stat-value">48.2K</div>
-          <div class="float-stat-sub">Across 3 active agents</div>
-        </div>
-        <div class="float-stat">
-          <div class="float-stat-label">USDC Settled (Solana)</div>
-          <div class="float-stat-value">$840</div>
-          <div class="float-stat-sub">via x402 · last 24h</div>
-        </div>
-        <div class="flow-row">
-          <div class="flow-step">
-            <div class="flow-icon cream">📱</div>
-            <div class="flow-label">User pays UPI</div>
-          </div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-step">
-            <div class="flow-icon olive">🪝</div>
-            <div class="flow-label">Dodo webhook fires</div>
-          </div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-step">
-            <div class="flow-icon lavender">🤖</div>
-            <div class="flow-label">Credits activated</div>
-          </div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-step">
-            <div class="flow-icon olive">⚡</div>
-            <div class="flow-label">Agent runs</div>
-          </div>
-          <div class="flow-arrow">→</div>
-          <div class="flow-step">
-            <div class="flow-icon cream">◎</div>
-            <div class="flow-label">USDC settles on Solana</div>
-          </div>
-        </div>
-      </div>
+<div class="db-page-wrap">
+  <div class="db-topbar">
+    <a href="/" class="db-logo"><span style="color:var(--olive);">?</span> DodoArc</a>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="live-indicator" style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--olive);">? LIVE</span>
+      <a href="/" class="db-back-link">? Back to site</a>
     </div>
   </div>
-</section>
-
-<!-- HOW IT WORKS -->
-<section class="section how-section" id="how">
-  <div class="section-inner">
-    <div class="section-label">The flow</div>
-    <h2 class="section-title">Fiat in. USDC out.<br>Nothing in between.</h2>
-    <p class="section-sub">DodoArc connects the human payment layer to the agent settlement layer — the missing bridge between Dodo Payments and Solana.</p>
-    <div class="steps-grid">
-      <div class="step-card s1">
-        <div class="step-num">01</div>
-        <div class="step-icon">🏪</div>
-        <div class="step-title">Create your plan</div>
-        <div class="step-desc">Define subscription plans, credit packs, or usage tiers. Set per-unit credit cost for every agent action.</div>
-        <span class="step-tag tag-ink">Dodo Dashboard</span>
-      </div>
-      <div class="step-card s2">
-        <div class="step-num">02</div>
-        <div class="step-icon">📲</div>
-        <div class="step-title">User pays with UPI</div>
-        <div class="step-desc">Your users see a native Dodo checkout — UPI, card, Klarna, 150 countries. No Phantom wallet required.</div>
-        <span class="step-tag tag-olive">Dodo Payments</span>
-      </div>
-      <div class="step-card s3">
-        <div class="step-num">03</div>
-        <div class="step-icon">🪝</div>
-        <div class="step-title">Webhook activates access</div>
-        <div class="step-desc">Dodo fires a webhook. DodoArc middleware grants credits or subscription access instantly. Zero manual work.</div>
-        <span class="step-tag tag-lavender">Webhook API</span>
-      </div>
-      <div class="step-card s4">
-        <div class="step-num">04</div>
-        <div class="step-icon">⛓️</div>
-        <div class="step-title">x402 USDC settlement</div>
-        <div class="step-desc">When your agent calls a paid tool or MCP server, x402 headers trigger USDC micropayment on Solana in 400ms.</div>
-        <span class="step-tag tag-blush">Solana · x402</span>
-      </div>
+  <div class="db-body">
+    <div class="db-sidebar">
+      <div class="sidebar-section-label">Main</div>
+      <div class="sidebar-item active" data-view="overview"><span class="sidebar-icon">?</span> Overview</div>
+      <div class="sidebar-item" data-view="subscribers"><span class="sidebar-icon">??</span> Subscribers</div>
+      <div class="sidebar-item" data-view="agents"><span class="sidebar-icon">??</span> Agents</div>
+      <div class="sidebar-section-label">Revenue</div>
+      <div class="sidebar-item" data-view="fiat"><span class="sidebar-icon">?</span> Fiat Revenue</div>
+      <div class="sidebar-item" data-view="settlement"><span class="sidebar-icon">?</span> USDC Settlement</div>
+      <div class="sidebar-item" data-view="credits"><span class="sidebar-icon">???</span> Credits</div>
+      <div class="sidebar-section-label">Dev</div>
+      <div class="sidebar-item" data-view="webhooks"><span class="sidebar-icon">??</span> Webhooks</div>
+      <div class="sidebar-item" data-view="apikeys"><span class="sidebar-icon">??</span> API Keys</div>
     </div>
+    <main class="db-main" id="db-main-content"></main>
   </div>
-</section>
-
-<!-- FEATURES -->
-<section class="section features-section" id="features">
-  <div class="section-inner">
-    <div class="section-label">What's inside</div>
-    <h2 class="section-title">Everything a builder needs.<br>Nothing they don't.</h2>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon fi-olive">🧾</div>
-        <div class="feature-title">Dodo Checkout Embed</div>
-        <div class="feature-desc">One-line embed for any web page. Supports INR, USD, EUR. UPI, cards, Klarna, PhonePe. Handles tax and compliance automatically.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon fi-lavender">🎛️</div>
-        <div class="feature-title">Usage Credit Engine</div>
-        <div class="feature-desc">Define credit costs per agent action. Subscriptions allocate monthly credits. Pay-as-you-go credit packs. Real-time deduction on every run.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon fi-blush">🪝</div>
-        <div class="feature-title">Webhook Middleware</div>
-        <div class="feature-desc">DodoArc receives Dodo payment events and automatically activates or pauses user access. Retry logic included. Zero manual ops.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon fi-cream">◎</div>
-        <div class="feature-title">x402 USDC Settlement</div>
-        <div class="feature-desc">When your agent calls a paid MCP tool, x402 payment headers settle USDC on Solana automatically. 400ms. No wallet UX for the user.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon fi-olive">📊</div>
-        <div class="feature-title">Unified Revenue Dashboard</div>
-        <div class="feature-desc">See fiat revenue, credit consumption, agent run counts, and Solana settlement receipts — all in one screen. ARR visible from day one.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon fi-lavender">🔗</div>
-        <div class="feature-title">Solana Wallet Link</div>
-        <div class="feature-desc">Link a Phantom wallet to receive consolidated USDC settlement. One-click withdrawal. On-chain receipt for every settlement event.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- PRICING -->
-<section class="section pricing-section" id="pricing">
-  <div class="section-inner">
-    <div class="section-label">Pricing</div>
-    <h2 class="section-title">Start free. Scale as you grow.</h2>
-    <p class="section-sub">No fixed costs while you're building. Revenue share only when you earn.</p>
-    <div class="plans-grid">
-      <div class="plan-card starter">
-        <div class="plan-badge badge-starter">Starter</div>
-        <div class="plan-price"><span class="plan-currency">₹</span>0</div>
-        <div class="plan-period">Free forever</div>
-        <ul class="plan-features">
-          <li><span class="check">✓</span> 1 agent product</li>
-          <li><span class="check">✓</span> 50 subscribers</li>
-          <li><span class="check">✓</span> Dodo checkout embed</li>
-          <li><span class="check">✓</span> Basic webhook handling</li>
-          <li><span class="check">✓</span> Credit deduction engine</li>
-          <li><span class="check">✓</span> 5% revenue share</li>
-        </ul>
-        <button class="plan-btn btn-starter" data-plan-id="plan_starter" data-label="Get started free">Get started free</button>
-      </div>
-      <div class="plan-card pro">
-        <div class="plan-popular">Most Popular</div>
-        <div class="plan-badge badge-pro">Pro</div>
-        <div class="plan-price"><span class="plan-currency">₹</span>2,999</div>
-        <div class="plan-period">per month · billed monthly</div>
-        <ul class="plan-features">
-          <li><span class="check">✓</span> Unlimited agent products</li>
-          <li><span class="check">✓</span> Unlimited subscribers</li>
-          <li><span class="check">✓</span> x402 USDC settlement</li>
-          <li><span class="check">✓</span> Solana wallet integration</li>
-          <li><span class="check">✓</span> Advanced analytics</li>
-          <li><span class="check">✓</span> 2% revenue share</li>
-        </ul>
-        <button class="plan-btn btn-pro" data-plan-id="plan_pro" data-label="Start Pro trial">Start Pro trial</button>
-      </div>
-      <div class="plan-card enterprise">
-        <div class="plan-badge badge-enterprise">Enterprise</div>
-        <div class="plan-price"><span class="plan-currency">₹</span>Custom</div>
-        <div class="plan-period">volume pricing</div>
-        <ul class="plan-features">
-          <li><span class="check">✓</span> Everything in Pro</li>
-          <li><span class="check">✓</span> Custom credit schemas</li>
-          <li><span class="check">✓</span> Multi-wallet settlement</li>
-          <li><span class="check">✓</span> SLA + dedicated support</li>
-          <li><span class="check">✓</span> White-label checkout</li>
-          <li><span class="check">✓</span> 0.5% revenue share</li>
-        </ul>
-        <button class="plan-btn btn-enterprise" data-plan-id="plan_enterprise" data-label="Contact us">Contact us</button>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer>
-  <div>
-    <div class="footer-logo">DodoArc</div>
-    <div class="footer-tagline">Billing OS for AI agent products on Solana.</div>
-  </div>
-  <div class="footer-links">
-    <a href="#">Docs</a>
-    <a href="#">GitHub</a>
-    <a href="#">Discord</a>
-    <a href="#">Colosseum</a>
-  </div>
-  <div class="footer-built">Built for Colosseum Frontier 2026</div>
-</footer>
-<script src="/landing.js"></script>
+</div>
+<script src="/dashboard.js"></script>
 </body>
 </html>

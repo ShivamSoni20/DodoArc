@@ -1,0 +1,61 @@
+const fs = require('fs');
+const path = require('path');
+const Database = require('better-sqlite3');
+
+const dataDir = path.join(__dirname, '..', '..', 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+const dbPath = process.env.DB_PATH || path.join(dataDir, 'dodoarc.db');
+const sqlite = new Database(dbPath);
+
+sqlite.pragma('journal_mode = WAL');
+sqlite.pragma('foreign_keys = ON');
+
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS webhook_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT UNIQUE NOT NULL,
+    event_type TEXT NOT NULL,
+    raw_body TEXT,
+    status TEXT DEFAULT 'pending',
+    retry_count INTEGER DEFAULT 0,
+    action_taken TEXT,
+    error_message TEXT,
+    received_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    processed_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    dodo_customer_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS subscriptions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    plan_id TEXT NOT NULL,
+    dodo_payment_id TEXT,
+    dodo_subscription_id TEXT,
+    status TEXT DEFAULT 'active',
+    credits_total INTEGER DEFAULT 0,
+    credits_used INTEGER DEFAULT 0,
+    payment_method TEXT,
+    last_payment_amount INTEGER,
+    last_payment_currency TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    data TEXT,
+    timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+module.exports = sqlite;

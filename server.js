@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -24,6 +23,7 @@ app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.use('/api/plans', require('./src/routes/plans'));
 app.use('/api/checkout', require('./src/routes/checkout'));
 app.use('/api/webhook', require('./src/routes/webhook'));
+app.use('/api/webhooks', require('./src/routes/webhooks'));
 app.use('/api/credits', require('./src/routes/credits'));
 app.use('/api/subscriptions', require('./src/routes/subscriptions'));
 app.use('/api/solana', require('./src/routes/solana'));
@@ -42,12 +42,20 @@ app.get('/checkout/mock-success', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'mock-success.html'));
 });
 
+app.get('/dashboard', (req, res) => {
+  const providedKey = req.query.key || req.headers['x-dashboard-key'];
+  if (config.DASHBOARD_API_KEY && providedKey !== config.DASHBOARD_API_KEY) {
+    return res.status(401).send('Dashboard API key required. Pass ?key=YOUR_KEY or x-dashboard-key.');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.get('*', (req, res) => {
-  const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  const injected = html.includes('/app.js')
-    ? html
-    : html.replace('</body>', '<script src="/app.js"></script>\n</body>');
-  res.type('html').send(injected);
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 if (require.main === module) {

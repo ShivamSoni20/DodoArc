@@ -27,6 +27,27 @@ Implemented stack:
 ## Build Status
 
 - Milestone 1 MVP: implemented
+- Milestone 2 MVP: implemented
 - Tests passing: yes
 - Devnet deployed: no
 - Program ID: not applicable yet
+
+## Milestone 2
+
+Goal: improve webhook reliability and split the product site from the operator dashboard.
+
+Implemented:
+- SQLite persistence through `better-sqlite3`
+- Durable users, subscriptions, events, and webhook delivery log
+- Idempotent webhook processing using event IDs
+- Retry-aware webhook status tracking with retry counts and failure messages
+- Webhook log API at `/api/webhooks/log`
+- Landing page at `/`
+- Standalone dashboard at `/dashboard`
+- Dashboard view router with Overview, Subscribers, Webhooks, Credits, Settlement, and related views
+- Solana devnet settlement-log endpoint for the next x402/USDC milestone
+
+Solana status:
+- Still devnet-first.
+- No on-chain write path yet.
+- Current Solana work exposes settlement readiness and mock receipt shape for Milestone 3.

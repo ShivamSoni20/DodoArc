@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const { Webhook } = require('standardwebhooks');
 const config = require('../config');
 
 let DodoPayments;
@@ -52,47 +52,25 @@ async function createCheckoutSession({ plan, user, metadata }) {
   };
 }
 
-function extractV1Signature(signatureHeader = '') {
-  const pair = signatureHeader
-    .split(' ')
-    .join(',')
-    .split(',')
-    .map((part) => part.trim())
-    .find((part) => part && !part.startsWith('v'));
-  return pair || '';
-}
-
 function verifyWebhookSignature(rawBody, headers) {
   const secret = config.DODO_PAYMENTS_WEBHOOK_SECRET;
-  const signature = headers['webhook-signature'] || headers['dodo-signature'] || '';
-  const timestamp = headers['webhook-timestamp'] || '';
 
   if (!secret) {
     return config.ALLOW_UNSIGNED_TEST_WEBHOOKS;
   }
 
-  if (!signature || !timestamp) return false;
-
-  const eventTime = Number(timestamp) * 1000;
-  if (!Number.isFinite(eventTime) || Math.abs(Date.now() - eventTime) > 5 * 60 * 1000) {
+  try {
+    const webhook = new Webhook(secret);
+    webhook.verify(rawBody, {
+      'webhook-id': headers['webhook-id'],
+      'webhook-signature': headers['webhook-signature'],
+      'webhook-timestamp': headers['webhook-timestamp']
+    });
+    return true;
+  } catch (error) {
+    console.warn('Dodo webhook verification failed:', error.message);
     return false;
   }
-
-  const payload = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody || '');
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(`${timestamp}.${payload}`)
-    .digest('base64');
-  const provided = extractV1Signature(signature);
-
-  if (!provided) return false;
-
-  const expectedBuffer = Buffer.from(expected);
-  const providedBuffer = Buffer.from(provided);
-  return (
-    expectedBuffer.length === providedBuffer.length &&
-    crypto.timingSafeEqual(expectedBuffer, providedBuffer)
-  );
 }
 
 module.exports = {

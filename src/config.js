@@ -10,6 +10,7 @@ module.exports = {
     process.env.DODO_PAYMENTS_ENVIRONMENT || process.env.DODO_MODE || 'test_mode',
   DODO_PRO_PRODUCT_ID: process.env.DODO_PRO_PRODUCT_ID || '',
   ALLOW_UNSIGNED_TEST_WEBHOOKS: process.env.ALLOW_UNSIGNED_TEST_WEBHOOKS !== 'false',
+  DASHBOARD_API_KEY: process.env.DASHBOARD_API_KEY || '',
 
   SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com',
   USDC_MINT_DEVNET:
