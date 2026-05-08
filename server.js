@@ -27,6 +27,7 @@ app.use('/api/webhooks', require('./src/routes/webhooks'));
 app.use('/api/credits', require('./src/routes/credits'));
 app.use('/api/subscriptions', require('./src/routes/subscriptions'));
 app.use('/api/solana', require('./src/routes/solana'));
+app.use('/api/agent', require('./src/routes/agent'));
 
 app.get('/api/health', (req, res) => {
   res.json({

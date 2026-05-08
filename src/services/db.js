@@ -14,8 +14,8 @@ const PLANS = [
   {
     id: 'plan_pro',
     name: 'Pro',
-    price: 2999,
-    display_price: 'INR 2,999/mo',
+    price: 499,
+    display_price: 'INR 499/mo',
     currency: 'INR',
     credits: 1000,
     interval: 'monthly',
@@ -119,10 +119,37 @@ const stmts = {
 
   insertEvent: sqlite.prepare('INSERT INTO events (type, data) VALUES (@type, @data)'),
   getRecentEvents: sqlite.prepare('SELECT * FROM events ORDER BY timestamp DESC, id DESC LIMIT ?'),
+  insertSettlement: sqlite.prepare(`
+    INSERT INTO settlement_receipts (
+      agent_run_id, tool_name, amount_usdc, to_wallet, tx_signature, explorer_url, mock
+    )
+    VALUES (
+      @agent_run_id, @tool_name, @amount_usdc, @to_wallet, @tx_signature, @explorer_url, @mock
+    )
+  `),
+  getRecentSettlements: sqlite.prepare(`
+    SELECT * FROM settlement_receipts ORDER BY created_at DESC, id DESC LIMIT ?
+  `),
+  insertAgentRun: sqlite.prepare(`
+    INSERT OR IGNORE INTO agent_runs (run_id, user_id, agent_name, credits_used, status)
+    VALUES (@run_id, @user_id, @agent_name, @credits_used, @status)
+  `),
+  completeAgentRun: sqlite.prepare(`
+    UPDATE agent_runs
+    SET status = @status,
+        result = @result,
+        completed_at = CURRENT_TIMESTAMP
+    WHERE run_id = @run_id
+  `),
+  getRecentRuns: sqlite.prepare(`
+    SELECT * FROM agent_runs ORDER BY created_at DESC, id DESC LIMIT ?
+  `),
   resetWebhookLog: sqlite.prepare('DELETE FROM webhook_log'),
   resetUsers: sqlite.prepare('DELETE FROM users'),
   resetSubscriptions: sqlite.prepare('DELETE FROM subscriptions'),
-  resetEvents: sqlite.prepare('DELETE FROM events')
+  resetEvents: sqlite.prepare('DELETE FROM events'),
+  resetSettlements: sqlite.prepare('DELETE FROM settlement_receipts'),
+  resetAgentRuns: sqlite.prepare('DELETE FROM agent_runs')
 };
 
 function normalizeUser(row) {
@@ -161,6 +188,14 @@ function normalizeEvent(row) {
     type: row.type,
     data: row.data ? JSON.parse(row.data) : {},
     timestamp: row.timestamp
+  };
+}
+
+function normalizeAgentRun(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    result: row.result ? JSON.parse(row.result) : null
   };
 }
 
@@ -270,6 +305,33 @@ module.exports = {
   logEvent,
   getRecentEvents: (limit = 30) => stmts.getRecentEvents.all(limit).map(normalizeEvent),
 
+  logSettlement: (data) =>
+    stmts.insertSettlement.run({
+      agent_run_id: data.agent_run_id,
+      tool_name: data.tool_name,
+      amount_usdc: data.amount_usdc,
+      to_wallet: data.to_wallet,
+      tx_signature: data.tx_signature,
+      explorer_url: data.explorer_url,
+      mock: data.mock ? 1 : 0
+    }),
+  getRecentSettlements: (limit = 20) => stmts.getRecentSettlements.all(limit),
+  logAgentRun: (data) =>
+    stmts.insertAgentRun.run({
+      run_id: data.run_id,
+      user_id: data.user_id,
+      agent_name: data.agent_name,
+      credits_used: data.credits_used,
+      status: data.status || 'running'
+    }),
+  completeAgentRun: (runId, status, result) =>
+    stmts.completeAgentRun.run({
+      run_id: runId,
+      status,
+      result: JSON.stringify(result || {})
+    }),
+  getRecentRuns: (limit = 20) => stmts.getRecentRuns.all(limit).map(normalizeAgentRun),
+
   logWebhookReceived: (eventId, eventType, rawBody) =>
     stmts.insertWebhookLog.run({
       event_id: eventId,
@@ -290,6 +352,8 @@ module.exports = {
       stmts.resetSubscriptions.run();
       stmts.resetUsers.run();
       stmts.resetEvents.run();
+      stmts.resetSettlements.run();
+      stmts.resetAgentRuns.run();
     })();
   }
 };

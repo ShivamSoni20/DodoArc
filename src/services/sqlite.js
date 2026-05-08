@@ -56,6 +56,30 @@ sqlite.exec(`
     data TEXT,
     timestamp TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS settlement_receipts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_run_id TEXT,
+    tool_name TEXT,
+    amount_usdc REAL,
+    to_wallet TEXT,
+    tx_signature TEXT,
+    explorer_url TEXT,
+    mock INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS agent_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id TEXT UNIQUE,
+    user_id TEXT,
+    agent_name TEXT,
+    credits_used INTEGER,
+    status TEXT DEFAULT 'running',
+    result TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT
+  );
 `);
 
 module.exports = sqlite;
