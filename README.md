@@ -44,6 +44,19 @@ Milestone 3 connects the billing foundation to the agent economy:
 - Dashboard Agents view for running the agent, reviewing receipts, and opening Solana explorer links.
 - Devnet setup helper for funding and checking the settlement wallet.
 
+### Milestone 4: Live Operator Dashboard
+
+Milestone 4 focuses on making the demo and operator view judge-ready:
+
+- Dashboard metrics backed by real SQLite state instead of static display values.
+- Aggregated visibility for subscriptions, fiat revenue, credit usage, agent runs, and USDC settlement receipts.
+- Revenue chart and credit usage views designed around live subscription and usage data.
+- Real-time dashboard refresh path for webhook and agent-run updates.
+- One-click demo flow that connects payment simulation, credit activation, agent execution, and settlement visibility.
+- Flow visualization showing the complete DodoArc loop from user payment to Solana settlement.
+- Loading, error, and empty states for a more reliable live demo experience.
+- Dashboard test coverage planned around metrics, demo user setup, simulated payment, and credit usage updates.
+
 ## Architecture
 
 ```mermaid
@@ -66,6 +79,8 @@ flowchart LR
         AgentRun["POST /api/agent/run"]
         AgentRuns["GET /api/agent/runs"]
         SettlementLog["GET /api/solana/settlement-log"]
+        Metrics["GET /api/dashboard/metrics"]
+        Demo["GET/POST /api/demo/*"]
     end
 
     subgraph Services["Application Services"]
@@ -75,6 +90,7 @@ flowchart LR
         AgentService["Trading Signal Agent"]
         X402Service["x402 Settlement Service"]
         SolanaService["Solana Devnet Service"]
+        MetricsService["Dashboard Metrics Aggregator"]
     end
 
     subgraph Data["Persistence"]
@@ -83,6 +99,7 @@ flowchart LR
 
     Dodo["Dodo Payments"]
     Solana["Solana Devnet"]
+    LiveUpdates["Live Dashboard Updates"]
 
     Landing --> Plans
     Landing --> Checkout
@@ -95,6 +112,8 @@ flowchart LR
     Dashboard --> AgentRun
     Dashboard --> AgentRuns
     Dashboard --> SettlementLog
+    Dashboard --> Metrics
+    Dashboard --> Demo
 
     Checkout --> DodoService
     DodoService --> Dodo
@@ -110,6 +129,11 @@ flowchart LR
     X402Service --> SolanaService
     SolanaService --> Solana
     AgentService --> SQLite
+    WebhookEngine --> LiveUpdates
+    AgentService --> LiveUpdates
+    LiveUpdates --> Dashboard
+    Metrics --> MetricsService
+    MetricsService --> SQLite
 
     Plans --> SQLite
     Subs --> SQLite
@@ -142,7 +166,7 @@ flowchart TD
     P --> Q["Deduct 10 credits"]
     Q --> R["Create x402-style settlement receipts"]
     R --> S["Persist agent run and receipt history"]
-    S --> T["Dashboard shows signal, credits, and Solana explorer links"]
+    S --> T["Dashboard refreshes live with metrics and Solana explorer links"]
 ```
 
 ## Agent Settlement Sequence
@@ -277,3 +301,5 @@ flowchart LR
 ```
 
 DodoArc now demonstrates a testable billing foundation for AI agent products: Dodo Payments checkout, webhook-based activation, durable billing records, credit-backed agent execution, x402-style Solana settlement receipts, and a dashboard for operational visibility.
+
+Milestone 4 sharpens that foundation into a live operator console: real billing metrics, demo-ready workflow visualization, and a dashboard surface built to show payment, credit, agent, and settlement state without manual database inspection.
