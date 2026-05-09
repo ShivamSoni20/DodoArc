@@ -17,11 +17,18 @@ function createCreditedUser(email = 'agenttest@dodoarc.xyz') {
   return user;
 }
 
+function createApiKey(email = 'agent-dev@dodoarc.xyz') {
+  const developer = db.createDeveloper(email, 'Agent Dev');
+  return db.generateApiKey(developer.id, 'Test Key').key;
+}
+
 test('POST /api/agent/run returns signal and three x402 receipts', async () => {
   const user = createCreditedUser();
+  const apiKey = createApiKey();
 
   const response = await request(app)
     .post('/api/agent/run')
+    .set('x-api-key', apiKey)
     .send({ userId: user.id })
     .expect(200);
 
@@ -33,17 +40,19 @@ test('POST /api/agent/run returns signal and three x402 receipts', async () => {
 
 test('agent run deducts 10 credits', async () => {
   const user = createCreditedUser('deduct@dodoarc.xyz');
+  const apiKey = createApiKey('deduct-dev@dodoarc.xyz');
   const before = db.getRemainingCredits(user.id);
 
-  await request(app).post('/api/agent/run').send({ userId: user.id }).expect(200);
+  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
 
   expect(before - db.getRemainingCredits(user.id)).toBe(10);
 });
 
 test('agent run stores settlement receipts', async () => {
   const user = createCreditedUser('settlement@dodoarc.xyz');
+  const apiKey = createApiKey('settlement-dev@dodoarc.xyz');
 
-  await request(app).post('/api/agent/run').send({ userId: user.id }).expect(200);
+  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
 
   const settlements = db.getRecentSettlements();
   expect(settlements.length).toBe(3);
@@ -53,7 +62,8 @@ test('agent run stores settlement receipts', async () => {
 
 test('GET /api/agent/runs returns run history', async () => {
   const user = createCreditedUser('runs@dodoarc.xyz');
-  await request(app).post('/api/agent/run').send({ userId: user.id }).expect(200);
+  const apiKey = createApiKey('runs-dev@dodoarc.xyz');
+  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
 
   const response = await request(app).get('/api/agent/runs').expect(200);
 
@@ -63,7 +73,8 @@ test('GET /api/agent/runs returns run history', async () => {
 
 test('GET /api/solana/settlement-log returns receipts and total', async () => {
   const user = createCreditedUser('log@dodoarc.xyz');
-  await request(app).post('/api/agent/run').send({ userId: user.id }).expect(200);
+  const apiKey = createApiKey('log-dev@dodoarc.xyz');
+  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
 
   const response = await request(app).get('/api/solana/settlement-log').expect(200);
 
@@ -74,17 +85,24 @@ test('GET /api/solana/settlement-log returns receipts and total', async () => {
 
 test('agent run fails with 402 when user has no credits', async () => {
   const user = db.getOrCreateUser('broke@dodoarc.xyz', 'Broke User');
+  const apiKey = createApiKey('broke-dev@dodoarc.xyz');
 
   const response = await request(app)
     .post('/api/agent/run')
+    .set('x-api-key', apiKey)
     .send({ userId: user.id })
     .expect(402);
 
   expect(response.body.error).toMatch(/credits/i);
 });
 
-test('POST /api/agent/run returns 400 without userId', async () => {
-  await request(app).post('/api/agent/run').send({}).expect(400);
+test('POST /api/agent/run requires an API key', async () => {
+  await request(app).post('/api/agent/run').send({}).expect(401);
+});
+
+test('POST /api/agent/run returns 400 without userId when authenticated', async () => {
+  const apiKey = createApiKey('missing-user-dev@dodoarc.xyz');
+  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({}).expect(400);
 });
 
 test('wallet connect status is exposed over Solana API', async () => {

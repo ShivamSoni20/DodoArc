@@ -33,6 +33,35 @@ sqlite.exec(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS developers (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS api_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key_hash TEXT UNIQUE NOT NULL,
+    key_prefix TEXT NOT NULL,
+    developer_id TEXT NOT NULL,
+    name TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TEXT,
+    FOREIGN KEY (developer_id) REFERENCES developers(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS developer_apps (
+    id TEXT PRIMARY KEY,
+    developer_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    plan_id TEXT DEFAULT 'plan_pro',
+    credits_per_run INTEGER DEFAULT 10,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (developer_id) REFERENCES developers(id)
+  );
+
   CREATE TABLE IF NOT EXISTS subscriptions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

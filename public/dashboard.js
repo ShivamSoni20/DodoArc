@@ -13,12 +13,55 @@ const API = {
   agentRuns: () => getJson('/api/agent/runs'),
   walletStatus: () => getJson('/api/solana/wallet-status'),
   plans: () => getJson('/api/plans'),
-  runAgent: (userId) => getJson('/api/agent/run', {
+  metrics: () => getJson('/api/dashboard/metrics'),
+  demoUser: () => getJson('/api/demo/user'),
+  demoPayment: () => getJson('/api/demo/simulate-payment', { method: 'POST' }),
+  demoDeveloperKey: () => getJson('/api/demo/developer-key', { method: 'POST' }),
+  registerDeveloper: (payload) => getJson('/api/developer/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }),
+  createDeveloperApp: (payload) => getJson('/api/developer/apps', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': getDeveloperApiKey()
+    },
+    body: JSON.stringify(payload)
+  }),
+  developerMe: () => getJson('/api/developer/me', {
+    headers: { 'x-api-key': getDeveloperApiKey() }
+  }),
+  runAgent: (userId) => getJson('/api/agent/run', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': getDeveloperApiKey()
+    },
     body: JSON.stringify({ userId, agentName: 'Trading Signal Agent' })
   })
 };
+
+function getDeveloperApiKey() {
+  return sessionStorage.getItem('dodoarc_api_key') || '';
+}
+
+function getLatestDeveloperApp() {
+  try {
+    return JSON.parse(sessionStorage.getItem('dodoarc_latest_app') || 'null');
+  } catch {
+    return null;
+  }
+}
+
+async function ensureDeveloperApiKey() {
+  const existing = getDeveloperApiKey();
+  if (existing) return existing;
+  const data = await API.demoDeveloperKey();
+  sessionStorage.setItem('dodoarc_api_key', data.apiKey.key);
+  return data.apiKey.key;
+}
 
 async function getJson(url, options = {}) {
   const response = await fetch(url, options);
@@ -167,22 +210,23 @@ function creditUsageWidget(subscriptions) {
     </div>`;
 }
 
-function revenueChartWidget(subscriptions = []) {
-  const active = subscriptions.filter((sub) => sub.status === 'active');
-  const monthlyRevenue = active.reduce((sum, sub) => sum + Number(sub.plan?.price || 0), 0);
-  const bars = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((month, index) => {
-    const height = index === 4 && monthlyRevenue ? 68 : Math.max(10, 22 + index * 5);
+function revenueChartWidget(monthlyRevenue = []) {
+  const maxInr = Math.max(...monthlyRevenue.map((item) => Number(item.inr || 0)), 1);
+  const maxUsdc = Math.max(...monthlyRevenue.map((item) => Number(item.usdc || 0)), 1);
+  const bars = monthlyRevenue.map((item) => {
+    const inrHeight = Math.max(4, Math.round((Number(item.inr || 0) / maxInr) * 70));
+    const usdcHeight = Math.max(4, Math.round((Number(item.usdc || 0) / maxUsdc) * 70));
     return `
       <div class="bar-group">
-        <div class="bar revenue" style="height:${height}px;" title="INR ${monthlyRevenue}"></div>
-        <div class="bar settlement" style="height:${Math.max(8, height - 18)}px;" title="x402 settlement readiness"></div>
-        <div class="bar-month">${month}</div>
+        <div class="bar revenue" style="height:${inrHeight}px;" title="INR ${Number(item.inr || 0).toFixed(2)}"></div>
+        <div class="bar settlement" style="height:${usdcHeight}px;" title="${Number(item.usdc || 0).toFixed(4)} USDC"></div>
+        <div class="bar-month">${escapeHtml(item.month)}</div>
       </div>`;
   }).join('');
 
   return `<div class="dash-widget">
-    <div class="widget-title">Revenue Readiness <span class="widget-badge wb-sync">Dodo</span></div>
-    <div class="mini-chart">${bars}</div>
+    <div class="widget-title">Revenue (6 months) <span class="widget-badge wb-live">Live</span></div>
+    <div class="mini-chart">${bars || emptyState('No revenue data yet.')}</div>
   </div>`;
 }
 
@@ -212,31 +256,26 @@ function settlementWidgetLive(receipts = [], totalSettled = null) {
 
 const views = {
   overview: async () => {
-    const [{ subscriptions = [] }, { log = [] }, settlement] = await Promise.all([
+    const [metrics, { subscriptions = [] }, { log = [] }, settlement] = await Promise.all([
+      API.metrics(),
       API.subscriptions(),
       API.webhookLog(),
       API.settlement()
     ]);
-    const activeSubscribers = subscriptions.filter((sub) => sub.status === 'active').length;
-    const creditsUsed = subscriptions.reduce((sum, sub) => sum + Number(sub.credits_used || 0), 0);
-    const totalSettled = Number(settlement.totalSettled || 0);
-    const mrr = subscriptions
-      .filter((sub) => sub.status === 'active')
-      .reduce((sum, sub) => sum + Number(sub.plan?.price || 0), 0);
 
     return `
       <div class="dash-page-title">Overview</div>
       <div class="dash-page-sub" style="margin-bottom:1.25rem;">
-        Dodo checkout, credits, agent runs, and x402 settlement receipts in one operating view.
+        <span class="live-dot"></span> Last updated ${new Date(metrics.timestamp).toLocaleTimeString('en-IN')}
       </div>
       <div class="metrics-row">
-        ${metricCard('MRR (Fiat)', `INR ${mrr.toLocaleString('en-IN')}`, 'active paid subscriptions', 'up')}
-        ${metricCard('Active Subscribers', activeSubscribers, `${subscriptions.length} total`, 'up')}
-        ${metricCard('Credits Consumed', creditsUsed.toLocaleString('en-IN'), 'agent runs', 'flat')}
-        ${metricCard('USDC Settled', `$${totalSettled.toFixed(4)}`, 'x402 receipts', 'up')}
+        ${metricCard('MRR (Fiat)', metrics.mrrFormatted, 'active paid subscriptions', 'up')}
+        ${metricCard('Active Subscribers', metrics.activeSubscribers, `${metrics.totalSubscribers} total`, 'up')}
+        ${metricCard('Credits Consumed', Number(metrics.totalCreditsUsed || 0).toLocaleString('en-IN'), `${metrics.completedAgentRuns} agent runs`, 'flat')}
+        ${metricCard('USDC Settled', `$${Number(metrics.totalUsdcSettled || 0).toFixed(4)}`, 'x402 receipts', 'up')}
       </div>
       <div class="dash-grid2" style="margin-top:1rem;">
-        ${revenueChartWidget(subscriptions)}
+        ${revenueChartWidget(metrics.monthlyRevenue || [])}
         ${agentFeedWidget(log)}
         ${creditUsageWidget(subscriptions)}
         ${settlementWidgetLive(settlement.receipts || [], settlement.totalSettled || 0)}
@@ -291,8 +330,29 @@ const views = {
   },
 
   fiat: async () => {
-    const { subscriptions = [] } = await API.subscriptions();
-    return `<div class="dash-page-title">Fiat Revenue</div><div class="dash-page-sub">Revenue readiness from active Dodo subscriptions.</div>${revenueChartWidget(subscriptions)}`;
+    const metrics = await API.metrics();
+    return `<div class="dash-page-title">Fiat Revenue</div><div class="dash-page-sub">Revenue from active Dodo subscriptions and top-up events.</div>${revenueChartWidget(metrics.monthlyRevenue || [])}`;
+  },
+  flow: async () => {
+    const [metrics, settlement] = await Promise.all([API.metrics(), API.settlement()]);
+    const lastSettlement = (settlement.receipts || [])[0];
+    return `
+      <div class="dash-page-title">DodoArc Flow</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">The complete loop from local payment to credits, agent execution, and Solana settlement.</div>
+      <div class="dash-widget">
+        <div style="display:flex;gap:8px;align-items:stretch;overflow-x:auto;padding:0.5rem 0;">
+          ${flowNode('User Pays', 'UPI/Card via Dodo', metrics.mrrFormatted)}
+          ${flowArrow('checkout')}
+          ${flowNode('Webhook', 'payment.succeeded', `${metrics.totalSubscribers} users`)}
+          ${flowArrow('activate')}
+          ${flowNode('Credits', 'allocated per plan', `${Number(metrics.totalCreditsGranted || 0).toLocaleString('en-IN')} total`)}
+          ${flowArrow('consume')}
+          ${flowNode('Agent Run', 'paid tools', `${metrics.completedAgentRuns} runs`)}
+          ${flowArrow('x402')}
+          ${flowNode('USDC Settled', 'Solana devnet', `$${Number(metrics.totalUsdcSettled || 0).toFixed(4)}`)}
+        </div>
+        ${lastSettlement ? `<div style="margin-top:1rem;background:var(--cream);border-radius:var(--r-md);padding:0.8rem;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:0.75rem;"><span>Last settlement</span><a href="${lastSettlement.explorer}" target="_blank" style="color:var(--lavender-dark);font-family:'DM Mono',monospace;">${escapeHtml(String(lastSettlement.signature || '').slice(0, 16))}...</a><strong>${Number(lastSettlement.amountUsdc || 0).toFixed(4)} USDC</strong></div>` : emptyState('No settlements yet. Run the full demo flow to populate this screen.')}
+      </div>`;
   },
   settlement: async () => {
     const settlement = await API.settlement();
@@ -302,8 +362,68 @@ const views = {
     const { subscriptions = [] } = await API.subscriptions();
     return `<div class="dash-page-title">Credits</div><div class="dash-page-sub">Credit consumption by subscription.</div>${creditUsageWidget(subscriptions)}`;
   },
-  apikeys: async () => '<div class="dash-page-title">API Keys</div><div class="dash-page-sub">Set DASHBOARD_API_KEY, DODO_PAYMENTS_API_KEY, and DODO_PRO_PRODUCT_ID in your local .env.</div>'
+  developer: async () => developerView(),
+  apikeys: async () => developerView()
 };
+
+function developerView() {
+  const savedKey = getDeveloperApiKey();
+  const latestApp = getLatestDeveloperApp();
+  return `
+    <div class="dash-page-title">Developer Portal</div>
+    <div class="dash-page-sub" style="margin-bottom:1.25rem;">Register, create agent products, copy API keys, and embed DodoArc checkout in another app.</div>
+    <div class="dash-grid2">
+      <div class="dash-widget">
+        <div class="widget-title">Register Developer</div>
+        <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Email</label>
+        <input id="dev-email" type="email" placeholder="you@example.com" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
+        <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Name</label>
+        <input id="dev-name" type="text" placeholder="Your name" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:10px;">
+        <button onclick="registerDeveloper()" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.55rem 1rem;font-weight:600;cursor:pointer;">Register and generate key</button>
+        <div id="dev-register-output" style="margin-top:10px;"></div>
+      </div>
+      <div class="dash-widget">
+        <div class="widget-title">Create Agent App</div>
+        <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">App name</label>
+        <input id="app-name" type="text" placeholder="My Trading Agent" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
+        <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Description</label>
+        <input id="app-desc" type="text" placeholder="AI signals for Solana traders" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:10px;">
+        <button onclick="createDeveloperApp()" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.55rem 1rem;font-weight:600;cursor:pointer;">Create app</button>
+        <div id="app-create-output" style="margin-top:10px;">${latestApp ? latestAppOutput(latestApp) : ''}</div>
+      </div>
+    </div>
+    <div class="dash-widget" style="margin-top:1rem;">
+      <div class="widget-title">Current API Key</div>
+      <div id="dev-key-value" style="font-family:'DM Mono',monospace;font-size:0.72rem;background:var(--cream);padding:0.75rem;border-radius:var(--r-sm);word-break:break-all;">${savedKey ? escapeHtml(savedKey) : 'Register to generate a key. Raw keys are shown only once.'}</div>
+      <button onclick="copyApiKey()" style="margin-top:8px;background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.45rem 0.9rem;font-size:0.75rem;cursor:pointer;">Copy key</button>
+    </div>
+    <div id="embed-code-section" class="dash-widget" style="${latestApp ? '' : 'display:none;'}margin-top:1rem;">
+      <div class="widget-title">Embed Code</div>
+      <pre id="embed-code" style="background:var(--ink);color:#9FE1CB;padding:1rem;border-radius:var(--r-md);font-size:0.68rem;overflow-x:auto;white-space:pre-wrap;">${latestApp ? escapeHtml(latestApp.embed) : ''}</pre>
+      <button onclick="copyEmbed()" style="margin-top:8px;background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.45rem 0.9rem;font-size:0.75rem;cursor:pointer;">Copy embed</button>
+    </div>`;
+}
+
+function latestAppOutput(data) {
+  return `<div style="color:var(--olive);font-size:0.78rem;">Created ${escapeHtml(data.app.name)}. <a href="${data.checkoutUrl}" target="_blank" rel="noreferrer" style="color:var(--lavender-dark);font-weight:700;">Preview checkout</a></div>`;
+}
+
+function flowNode(title, subtitle, stat) {
+  return `
+    <div style="min-width:120px;flex:1;background:var(--white);border:1px solid var(--cream-dark);border-radius:var(--r-md);padding:1rem;text-align:center;">
+      <div style="font-size:0.82rem;font-weight:700;color:var(--ink);margin-bottom:4px;">${escapeHtml(title)}</div>
+      <div style="font-size:0.67rem;color:var(--ink-soft);margin-bottom:8px;">${escapeHtml(subtitle)}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--olive-dark);font-weight:700;">${escapeHtml(stat)}</div>
+    </div>`;
+}
+
+function flowArrow(label) {
+  return `
+    <div style="min-width:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink-soft);">
+      <span style="font-size:0.58rem;margin-bottom:4px;white-space:nowrap;">${escapeHtml(label)}</span>
+      <span style="font-size:1.1rem;color:var(--olive);">-&gt;</span>
+    </div>`;
+}
 
 async function runDemoAgent() {
   const button = document.getElementById('run-agent-btn');
@@ -318,6 +438,7 @@ async function runDemoAgent() {
   }
 
   try {
+    await ensureDeveloperApiKey();
     const { subscriptions = [] } = await API.subscriptions();
     const active = subscriptions.find((sub) => sub.status === 'active') || subscriptions[0];
     if (!active?.userId) throw new Error('Complete a Dodo checkout before running the agent.');
@@ -340,9 +461,91 @@ async function runDemoAgent() {
   }
 }
 
+async function runFullDemo() {
+  const button = document.getElementById('run-full-demo-btn');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Running...';
+  }
+
+  try {
+    showToast('Step 1/3: simulating Dodo payment');
+    await API.demoPayment();
+    await sleep(700);
+    const { user } = await API.demoUser();
+    await ensureDeveloperApiKey();
+    showToast('Step 2/3: running agent and x402 settlements');
+    const result = await API.runAgent(user.id);
+    await sleep(700);
+    showToast(`Step 3/3: ${result.result.signal} signal, ${result.result.totalUsdcSettled.toFixed(4)} USDC settled`);
+    await renderView('overview');
+  } catch (error) {
+    showToast(`Demo failed: ${error.message}`);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Run full demo flow';
+    }
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function registerDeveloper() {
+  const output = document.getElementById('dev-register-output');
+  try {
+    const email = document.getElementById('dev-email').value.trim();
+    const name = document.getElementById('dev-name').value.trim();
+    const data = await API.registerDeveloper({ email, name });
+    sessionStorage.setItem('dodoarc_api_key', data.apiKey.key);
+    document.getElementById('dev-key-value').textContent = data.apiKey.key;
+    output.innerHTML = `<div style="color:var(--olive);font-size:0.78rem;">Registered ${escapeHtml(data.developer.email)}. Save the key now.</div>`;
+    showToast('Developer API key generated');
+  } catch (error) {
+    output.innerHTML = `<div style="color:#A32D2D;font-size:0.78rem;">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function createDeveloperApp() {
+  const output = document.getElementById('app-create-output');
+  try {
+    if (!getDeveloperApiKey()) throw new Error('Register first to get an API key.');
+    const name = document.getElementById('app-name').value.trim();
+    const description = document.getElementById('app-desc').value.trim();
+    const data = await API.createDeveloperApp({ name, description, planId: 'plan_pro' });
+    sessionStorage.setItem('dodoarc_latest_app', JSON.stringify({
+      app: data.app,
+      embed: data.embed,
+      checkoutUrl: data.checkoutUrl
+    }));
+    document.getElementById('embed-code-section').style.display = 'block';
+    document.getElementById('embed-code').textContent = data.embed;
+    output.innerHTML = latestAppOutput(data);
+    showToast('Developer app created');
+  } catch (error) {
+    output.innerHTML = `<div style="color:#A32D2D;font-size:0.78rem;">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function shouldAutoRefresh(view = currentView) {
+  return !['developer', 'apikeys'].includes(view);
+}
+
+function copyApiKey() {
+  const key = getDeveloperApiKey();
+  if (key) navigator.clipboard.writeText(key).then(() => showToast('API key copied'));
+}
+
+function copyEmbed() {
+  const embed = document.getElementById('embed-code')?.textContent;
+  if (embed) navigator.clipboard.writeText(embed).then(() => showToast('Embed code copied'));
+}
+
 async function renderView(view) {
   currentView = view;
-  main.innerHTML = '<div class="dash-page-sub">Loading...</div>';
+  main.innerHTML = skeletonLoader();
   try {
     main.innerHTML = await (views[view] || views.overview)();
   } catch (error) {
@@ -352,6 +555,16 @@ async function renderView(view) {
   document.querySelectorAll('.sidebar-item[data-view]').forEach((item) => {
     item.classList.toggle('active', item.dataset.view === currentView);
   });
+}
+
+function skeletonLoader() {
+  return `
+    <div style="animation:skeleton-pulse 1.4s ease-in-out infinite;">
+      <div style="height:28px;width:170px;background:var(--cream-dark);border-radius:var(--r-sm);margin-bottom:0.6rem;"></div>
+      <div style="height:14px;width:260px;background:var(--cream-dark);border-radius:var(--r-sm);margin-bottom:1.4rem;opacity:0.6;"></div>
+      <div class="metrics-row">${[1, 2, 3, 4].map(() => '<div style="height:82px;background:var(--cream-dark);border-radius:var(--r-md);"></div>').join('')}</div>
+      <div class="dash-grid2">${[1, 2, 3, 4].map(() => '<div style="height:160px;background:var(--cream-dark);border-radius:var(--r-md);"></div>').join('')}</div>
+    </div>`;
 }
 
 function errorState(message) {
@@ -503,12 +716,55 @@ function parseWebhookPayload(event) {
   }
 }
 
+function initWebSocket() {
+  const indicator = document.getElementById('live-indicator');
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+  ws.onopen = () => {
+    if (indicator) {
+      indicator.textContent = 'LIVE';
+      indicator.style.color = 'var(--olive)';
+    }
+  };
+
+  ws.onmessage = (event) => {
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+
+    if (message.type === 'subscription_update' || message.type === 'agent_run_complete') {
+      if (indicator) indicator.style.color = 'var(--gold)';
+      setTimeout(() => {
+        if (indicator) indicator.style.color = 'var(--olive)';
+      }, 600);
+      if (shouldAutoRefresh()) renderView(currentView);
+      if (message.type === 'subscription_update') showToast('Payment event received - dashboard refreshed');
+      if (message.type === 'agent_run_complete') showToast('Agent run complete - dashboard refreshed');
+    }
+  };
+
+  ws.onclose = () => {
+    if (indicator) {
+      indicator.textContent = 'reconnecting...';
+      indicator.style.color = 'var(--ink-soft)';
+    }
+    setTimeout(initWebSocket, 3000);
+  };
+}
+
 document.querySelectorAll('.sidebar-item[data-view]').forEach((item) => {
   item.addEventListener('click', () => renderView(item.dataset.view));
 });
 
 restoreWalletState();
 tryAutoConnect();
+initWebSocket();
 renderView('overview');
-refreshTimer = setInterval(() => renderView(currentView), 30000);
+refreshTimer = setInterval(() => {
+  if (shouldAutoRefresh()) renderView(currentView);
+}, 30000);
 window.addEventListener('beforeunload', () => clearInterval(refreshTimer));

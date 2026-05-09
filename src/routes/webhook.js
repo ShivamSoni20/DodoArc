@@ -141,6 +141,11 @@ router.post('/dodo', (req, res) => {
 
     const actionTaken = processEvent(event);
     db.markWebhookProcessed(eventId, actionTaken);
+    req.app.locals.broadcast?.('subscription_update', {
+      type: event.type,
+      action: actionTaken,
+      eventId
+    });
     res.json({ received: true, eventId, action: actionTaken });
   } catch (error) {
     console.error('[WEBHOOK] Error:', error);

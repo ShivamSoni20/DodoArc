@@ -2,10 +2,11 @@ const router = require('express').Router();
 const crypto = require('crypto');
 const db = require('../services/db');
 const { runTradingAgent } = require('../services/agent');
+const { requireApiKey } = require('../middleware/auth');
 
 const AGENT_RUN_CREDITS = 10;
 
-router.post('/run', async (req, res) => {
+router.post('/run', requireApiKey, async (req, res) => {
   const { userId, agentName = 'Trading Signal Agent' } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId required' });
 
@@ -50,6 +51,7 @@ router.post('/run', async (req, res) => {
     db.logEvent('agent_run_completed', {
       runId,
       userId,
+      developerId: req.developer.id,
       agentName,
       signal: result.signal,
       creditsUsed: AGENT_RUN_CREDITS,
@@ -57,6 +59,13 @@ router.post('/run', async (req, res) => {
       mock: result.mock
     });
     db.completeAgentRun(runId, 'completed', result);
+    req.app.locals.broadcast?.('agent_run_complete', {
+      runId,
+      userId,
+      signal: result.signal,
+      creditsUsed: AGENT_RUN_CREDITS,
+      usdcSettled: result.totalUsdcSettled
+    });
 
     res.json({
       success: true,
@@ -68,7 +77,7 @@ router.post('/run', async (req, res) => {
   } catch (error) {
     console.error('[Agent] Run failed:', error);
     db.completeAgentRun(runId, 'failed', { error: error.message });
-    db.logEvent('agent_run_failed', { runId, userId, error: error.message });
+    db.logEvent('agent_run_failed', { runId, userId, developerId: req.developer.id, error: error.message });
     res.status(500).json({ error: error.message, runId });
   }
 });

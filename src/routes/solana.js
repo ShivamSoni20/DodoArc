@@ -8,7 +8,8 @@ router.get('/settlement-config', (req, res) => {
 
 router.get('/settlement-log', (req, res) => {
   const receipts = db.getRecentSettlements(20);
-  const totalSettled = receipts.reduce((sum, receipt) => sum + Number(receipt.amount_usdc || 0), 0);
+  const allReceipts = db.getRecentSettlements(1000);
+  const totalSettled = allReceipts.reduce((sum, receipt) => sum + Number(receipt.amount_usdc || 0), 0);
 
   res.json({
     receipts: receipts.map((receipt) => ({

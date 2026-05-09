@@ -4,12 +4,14 @@ const dodo = require('../services/dodo');
 
 router.post('/create', async (req, res) => {
   try {
-    const { planId, email, name } = req.body;
+    const { planId, email, name, appId } = req.body;
     if (!planId || !email) {
       return res.status(400).json({ error: 'planId and email are required' });
     }
 
-    const plan = db.getPlanById(planId);
+    const app = appId ? db.getAppById(appId) : null;
+    const effectivePlanId = app?.planId || planId;
+    const plan = db.getPlanById(effectivePlanId);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
     const user = db.getOrCreateUser(email, name);
@@ -38,6 +40,8 @@ router.post('/create', async (req, res) => {
       metadata: {
         app: 'dodoarc',
         planId: plan.id,
+        ...(app?.id ? { appId: app.id } : {}),
+        ...(app?.developerId ? { developerId: app.developerId } : {}),
         userId: user.id,
         email: user.email,
         name: user.name
@@ -48,6 +52,8 @@ router.post('/create', async (req, res) => {
       userId: user.id,
       email: user.email,
       planId: plan.id,
+      appId: app?.id || null,
+      developerId: app?.developerId || null,
       checkoutMode: session.mode
     });
 

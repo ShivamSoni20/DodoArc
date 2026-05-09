@@ -4,6 +4,11 @@ const db = require('../src/services/db');
 
 beforeEach(() => db.resetForTests());
 
+function createApiKey(email = 'credits-dev@dodoarc.xyz') {
+  const developer = db.createDeveloper(email, 'Credits Dev');
+  return db.generateApiKey(developer.id, 'Test Key').key;
+}
+
 test('starter checkout activates a free subscription immediately', async () => {
   const response = await request(app)
     .post('/api/checkout/create')
@@ -25,6 +30,7 @@ test('credits can be consumed from an active subscription', async () => {
 
   const result = await request(app)
     .post('/api/credits/consume')
+    .set('x-api-key', createApiKey())
     .send({ userId: checkout.body.user.id, amount: 25, agentName: 'Research Agent' })
     .expect(200);
 
@@ -34,6 +40,14 @@ test('credits can be consumed from an active subscription', async () => {
 test('credit consumption returns 402 without an active subscription', async () => {
   await request(app)
     .post('/api/credits/consume')
+    .set('x-api-key', createApiKey('no-sub-dev@dodoarc.xyz'))
     .send({ userId: 'missing_user', amount: 1 })
     .expect(402);
+});
+
+test('credit consumption requires an API key', async () => {
+  await request(app)
+    .post('/api/credits/consume')
+    .send({ userId: 'missing_user', amount: 1 })
+    .expect(401);
 });

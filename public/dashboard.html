@@ -591,6 +591,16 @@
     from { opacity: 0; transform: translateX(-50%) translateY(10px); }
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
+  @keyframes skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  .live-dot::before {
+    content: '●';
+    color: var(--olive);
+    margin-right: 4px;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
   @media (max-width: 768px) { .db-body { flex-direction: column; } .db-sidebar { width: 100%; display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--cream-dark); } .sidebar-section-label { display: none; } .sidebar-item { white-space: nowrap; } }
 
 </style>
@@ -614,6 +624,10 @@
       <a href="/" class="db-back-link">← Back to site</a>
     </div>
   </div>
+  <div id="demo-banner" style="background:var(--lavender-pale);border-bottom:1px solid var(--lavender-light);padding:0.65rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;font-size:0.78rem;color:var(--lavender-dark);">
+    <span><strong>Demo mode</strong> - run payment simulation, credit activation, agent execution, and Solana settlement in one flow.</span>
+    <button id="run-full-demo-btn" onclick="runFullDemo()" style="background:var(--lavender-dark);color:var(--white);border:none;border-radius:100px;padding:0.45rem 1rem;font-size:0.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">Run full demo flow</button>
+  </div>
   <div class="db-body">
     <div class="db-sidebar">
       <div class="sidebar-section-label">Main</div>
@@ -624,7 +638,9 @@
       <div class="sidebar-item" data-view="fiat"><span class="sidebar-icon">₹</span> Fiat Revenue</div>
       <div class="sidebar-item" data-view="settlement"><span class="sidebar-icon">◎</span> USDC Settlement</div>
       <div class="sidebar-item" data-view="credits"><span class="sidebar-icon">Cr</span> Credits</div>
+      <div class="sidebar-item" data-view="flow"><span class="sidebar-icon">Flow</span> Flow</div>
       <div class="sidebar-section-label">Dev</div>
+      <div class="sidebar-item" data-view="developer"><span class="sidebar-icon">Dev</span> Developer</div>
       <div class="sidebar-item" data-view="webhooks"><span class="sidebar-icon">Hook</span> Webhooks</div>
       <div class="sidebar-item" data-view="apikeys"><span class="sidebar-icon">Key</span> API Keys</div>
     </div>

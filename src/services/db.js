@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const sqlite = require('./sqlite');
 
 const PLANS = [
@@ -72,6 +73,35 @@ const stmts = {
         dodo_customer_id = COALESCE(@dodo_customer_id, dodo_customer_id)
     WHERE id = @id
   `),
+
+  insertDeveloper: sqlite.prepare(`
+    INSERT OR IGNORE INTO developers (id, email, name)
+    VALUES (@id, @email, @name)
+  `),
+  getDeveloperByEmail: sqlite.prepare('SELECT * FROM developers WHERE email = ?'),
+  getDeveloperById: sqlite.prepare('SELECT * FROM developers WHERE id = ?'),
+  insertApiKey: sqlite.prepare(`
+    INSERT INTO api_keys (key_hash, key_prefix, developer_id, name)
+    VALUES (@key_hash, @key_prefix, @developer_id, @name)
+  `),
+  getApiKeyByHash: sqlite.prepare(`
+    SELECT ak.*, d.email AS developer_email, d.name AS developer_name
+    FROM api_keys ak
+    JOIN developers d ON d.id = ak.developer_id
+    WHERE ak.key_hash = ?
+  `),
+  updateApiKeyLastUsed: sqlite.prepare('UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE key_hash = ?'),
+  getApiKeysByDeveloper: sqlite.prepare(`
+    SELECT id, key_prefix, name, created_at, last_used_at
+    FROM api_keys WHERE developer_id = ?
+    ORDER BY created_at DESC, id DESC
+  `),
+  insertApp: sqlite.prepare(`
+    INSERT INTO developer_apps (id, developer_id, name, description, plan_id, credits_per_run)
+    VALUES (@id, @developer_id, @name, @description, @plan_id, @credits_per_run)
+  `),
+  getAppsByDeveloper: sqlite.prepare('SELECT * FROM developer_apps WHERE developer_id = ? ORDER BY created_at DESC'),
+  getAppById: sqlite.prepare('SELECT * FROM developer_apps WHERE id = ?'),
 
   getSubByUser: sqlite.prepare(`
     SELECT * FROM subscriptions WHERE user_id = ? AND status != 'cancelled'
@@ -149,7 +179,10 @@ const stmts = {
   resetSubscriptions: sqlite.prepare('DELETE FROM subscriptions'),
   resetEvents: sqlite.prepare('DELETE FROM events'),
   resetSettlements: sqlite.prepare('DELETE FROM settlement_receipts'),
-  resetAgentRuns: sqlite.prepare('DELETE FROM agent_runs')
+  resetAgentRuns: sqlite.prepare('DELETE FROM agent_runs'),
+  resetApps: sqlite.prepare('DELETE FROM developer_apps'),
+  resetApiKeys: sqlite.prepare('DELETE FROM api_keys'),
+  resetDevelopers: sqlite.prepare('DELETE FROM developers')
 };
 
 function normalizeUser(row) {
@@ -196,6 +229,40 @@ function normalizeAgentRun(row) {
   return {
     ...row,
     result: row.result ? JSON.parse(row.result) : null
+  };
+}
+
+function normalizeDeveloper(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    created_at: row.created_at
+  };
+}
+
+function normalizeApp(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    developerId: row.developer_id,
+    name: row.name,
+    description: row.description,
+    planId: row.plan_id,
+    creditsPerRun: row.credits_per_run,
+    created_at: row.created_at
+  };
+}
+
+function normalizeApiKey(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    keyPrefix: row.key_prefix,
+    name: row.name,
+    created_at: row.created_at,
+    last_used_at: row.last_used_at
   };
 }
 
@@ -267,6 +334,62 @@ function logEvent(type, data = {}) {
   return normalizeEvent({ id: info.lastInsertRowid, type, data: JSON.stringify(data), timestamp: new Date().toISOString() });
 }
 
+function hashApiKey(rawKey) {
+  return crypto.createHash('sha256').update(rawKey).digest('hex');
+}
+
+function createDeveloper(email, name = '') {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const developer = {
+    id: `dev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    email: normalizedEmail,
+    name: name || normalizedEmail.split('@')[0]
+  };
+  stmts.insertDeveloper.run(developer);
+  return normalizeDeveloper(stmts.getDeveloperByEmail.get(normalizedEmail));
+}
+
+function generateApiKey(developerId, keyName = 'Default') {
+  const rawKey = `da_live_${crypto.randomBytes(24).toString('base64url')}`;
+  const keyPrefix = rawKey.slice(0, 12);
+  stmts.insertApiKey.run({
+    key_hash: hashApiKey(rawKey),
+    key_prefix: keyPrefix,
+    developer_id: developerId,
+    name: keyName
+  });
+  return { key: rawKey, prefix: keyPrefix };
+}
+
+function validateApiKey(rawKey) {
+  const keyHash = hashApiKey(String(rawKey || '').trim());
+  const record = stmts.getApiKeyByHash.get(keyHash);
+  if (!record) return null;
+  stmts.updateApiKeyLastUsed.run(keyHash);
+  return {
+    ...record,
+    developer: normalizeDeveloper({
+      id: record.developer_id,
+      email: record.developer_email,
+      name: record.developer_name,
+      created_at: record.created_at
+    })
+  };
+}
+
+function createApp(developerId, { name, description = '', planId = 'plan_pro', creditsPerRun = 10 }) {
+  const app = {
+    id: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    developer_id: developerId,
+    name,
+    description,
+    plan_id: planId,
+    credits_per_run: Number(creditsPerRun) || 10
+  };
+  stmts.insertApp.run(app);
+  return normalizeApp(stmts.getAppById.get(app.id));
+}
+
 module.exports = {
   getPlans: () => PLANS,
   getPlanById: (id) => PLANS.find((plan) => plan.id === id),
@@ -281,6 +404,16 @@ module.exports = {
     });
     return normalizeUser(stmts.getUserById.get(id));
   },
+
+  createDeveloper,
+  getDeveloperByEmail: (email) => normalizeDeveloper(stmts.getDeveloperByEmail.get(String(email || '').trim().toLowerCase())),
+  getDeveloperById: (id) => normalizeDeveloper(stmts.getDeveloperById.get(id)),
+  generateApiKey,
+  validateApiKey,
+  getApiKeysByDeveloper: (developerId) => stmts.getApiKeysByDeveloper.all(developerId).map(normalizeApiKey),
+  createApp,
+  getAppsByDeveloper: (developerId) => stmts.getAppsByDeveloper.all(developerId).map(normalizeApp),
+  getAppById: (id) => normalizeApp(stmts.getAppById.get(id)),
 
   upsertSubscription,
   createSubscription: upsertSubscription,
@@ -351,6 +484,9 @@ module.exports = {
       stmts.resetWebhookLog.run();
       stmts.resetSubscriptions.run();
       stmts.resetUsers.run();
+      stmts.resetApps.run();
+      stmts.resetApiKeys.run();
+      stmts.resetDevelopers.run();
       stmts.resetEvents.run();
       stmts.resetSettlements.run();
       stmts.resetAgentRuns.run();

@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const db = require('../services/db');
+const { optionalApiKey, requireApiKey } = require('../middleware/auth');
 
-router.get('/:userId', (req, res) => {
+router.get('/:userId', optionalApiKey, (req, res) => {
   const subscription = db.getSubscriptionByUser(req.params.userId);
   if (!subscription) return res.json({ credits_remaining: 0, status: 'no_subscription' });
 
@@ -14,7 +15,7 @@ router.get('/:userId', (req, res) => {
   });
 });
 
-router.post('/consume', (req, res) => {
+router.post('/consume', requireApiKey, (req, res) => {
   const { userId, amount = 1, agentName = 'Demo Agent', action = 'agent.run' } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId is required' });
 
@@ -26,7 +27,7 @@ router.post('/consume', (req, res) => {
   const result = db.deductCredits(userId, numericAmount);
   if (!result.success) return res.status(402).json({ error: result.error });
 
-  db.logEvent('credits_consumed', { userId, amount: numericAmount, agentName, action });
+  db.logEvent('credits_consumed', { userId, developerId: req.developer.id, amount: numericAmount, agentName, action });
   res.json({ success: true, consumed: numericAmount, remaining: result.remaining });
 });
 
