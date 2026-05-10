@@ -18,7 +18,7 @@ const PLANS = [
     id: 'plan_pro',
     name: 'Pro',
     price: 2999,
-    display_price: 'Rs2,999/mo',
+    display_price: '₹2,999/mo',
     currency: 'INR',
     credits: 1000,
     interval: 'monthly',

@@ -71,9 +71,12 @@ router.get('/user', (req, res) => {
 
 router.post('/simulate-payment', (req, res) => {
   const { user, subscription, plan, developer, app } = getOrCreateDemoUser();
-  const updated = db.updateSubscription(subscription.id, {
+  const updated = db.upsertSubscription({
+    userId: user.id,
+    planId: plan.id,
     status: 'active',
     credits_total: subscription.credits_total + plan.credits,
+    credits_used: subscription.credits_used || 0,
     payment_method: 'demo',
     last_payment_amount: plan.price * 100,
     last_payment_currency: 'INR',

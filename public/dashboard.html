@@ -575,6 +575,34 @@
   .db-page-wrap { min-height: 100vh; display: flex; flex-direction: column; background: var(--cream); }
   .db-topbar { background: var(--white); padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--cream-dark); position: sticky; top: 0; z-index: 10; }
   .db-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 6px; text-decoration: none; }
+  .db-topbar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.38rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid rgba(107,124,92,0.18);
+    background: rgba(107,124,92,0.1);
+    color: var(--olive-dark);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .live-pill::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--olive);
+    box-shadow: 0 0 0 3px rgba(107,124,92,0.12);
+    animation: pulse-dot 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
   .db-back-link { font-size: 0.78rem; color: var(--ink-soft); text-decoration: none; display: flex; align-items: center; gap: 4px; padding: 0.4rem 0.8rem; border-radius: 100px; border: 1px solid var(--cream-dark); transition: border-color 0.2s, color 0.2s; }
   .db-back-link:hover { border-color: var(--olive-mist); color: var(--olive); }
   .db-body { display: flex; flex: 1; min-height: 0; }
@@ -609,9 +637,9 @@
 <div class="db-page-wrap">
   <div class="db-topbar">
     <a href="/" class="db-logo"><span style="color:var(--olive);">●</span> DodoArc</a>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span id="live-indicator" style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--olive);">LIVE</span>
-      <div id="wallet-section">
+      <div class="db-topbar-actions">
+        <span id="live-indicator" class="live-pill">LIVE</span>
+        <div id="wallet-section">
         <button id="wallet-connect-btn" onclick="connectWallet()" style="display:flex;align-items:center;gap:6px;background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.45rem 1rem;font-family:'Instrument Sans',sans-serif;font-size:0.75rem;font-weight:600;cursor:pointer;">
           Connect Phantom
         </button>

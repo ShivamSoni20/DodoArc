@@ -91,6 +91,16 @@ Milestone 7 sharpens DodoArc into a multi-tenant control plane for agent spendin
 - Landing page copy reframed around the core primitive: fiat payment in, policy-controlled agent spend out, Solana settlement receipts on every tool call.
 - Tests covering default policies, policy updates, paused apps, resumed apps, daily caps, app users, and authenticated agent history.
 
+## Milestone 7 Demo Surface
+
+What Milestone 7 adds to the live MVP:
+
+- A multi-tenant operator dashboard where platform views stay global while developer app actions stay app-scoped.
+- A Developer Portal for app creation, API key generation, app checkout preview, and embeddable checkout setup.
+- Policy-controlled agent execution with clear blocked states for paused apps, daily cap hits, per-run cap hits, and approval-required runs.
+- Live Trace and webhook visibility so judges can follow the full path from fiat checkout to agent run and Solana settlement receipt.
+- MCP discovery for agent-native usage, letting external agent products integrate DodoArc as programmable billing infrastructure.
+
 ## Architecture
 
 ```mermaid
@@ -215,13 +225,16 @@ flowchart TD
     J --> K{"Already processed?"}
     K -->|Yes| L["Return safe duplicate response"]
     K -->|No| M["Activate subscription credits"]
-    M --> N["Persist subscription, credits, event, and webhook log"]
-    N --> O["User connects Phantom or demo wallet"]
-    O --> P["Run Trading Signal Agent"]
-    P --> Q["Deduct 10 credits"]
-    Q --> R["Create x402-style settlement receipts"]
-    R --> S["Persist agent run and receipt history"]
-    S --> T["Dashboard refreshes live with metrics and explorer links"]
+    M --> N["Register app user + persist subscription, credits, event, and webhook log"]
+    N --> O["Developer app loads spend policy"]
+    O --> P["User connects Phantom or demo wallet"]
+    P --> Q["Run Trading Signal Agent"]
+    Q --> R{"Policy allows run?"}
+    R -->|No| S["Return blocked state before credits are consumed"]
+    R -->|Yes| T["Deduct 10 credits"]
+    T --> U["Create x402-style settlement receipts"]
+    U --> V["Persist agent run and receipt history"]
+    V --> W["Dashboard refreshes live with metrics, trace events, and explorer links"]
 ```
 
 ## Developer Platform Flow
@@ -231,6 +244,7 @@ sequenceDiagram
     participant Dev as Developer
     participant Portal as DodoArc Developer Portal
     participant API as DodoArc API
+    participant Policy as Spend Policy Engine
     participant Site as External Agent App
     participant Dodo as Dodo Checkout
     participant Agent as AI Agent
@@ -245,9 +259,11 @@ sequenceDiagram
     Site->>API: POST /api/checkout/create
     API->>Dodo: Create checkout session
     Dodo-->>API: payment.succeeded webhook
+    API->>API: Register app user + activate credits
     API-->>Agent: Credits available
     Agent->>API: POST /api/agent/run with x-api-key and appId
-    API->>API: Enforce app spend policy
+    API->>Policy: Enforce app spend policy
+    Policy-->>API: Allow or block
     API-->>Agent: Signal + x402 settlement receipts or policy block
 ```
 

@@ -661,14 +661,28 @@ async function runDemoAgent() {
   }
 
   try {
-    await ensureDeveloperApiKey();
-    const appId = getActiveAppId();
-    if (!appId) throw new Error('Create or load a developer app before running the agent.');
-    const { users = [] } = await API.appUsers(appId);
-    const activeUser = users[0];
-    if (!activeUser?.id) throw new Error('Complete a checkout for this app before running the agent.');
+    if (output) {
+      output.innerHTML = '<div style="font-family:\'DM Mono\',monospace;font-size:0.72rem;color:var(--ink-soft);line-height:1.8;">Setting up demo environment...<br>Calling paid tools via x402...</div>';
+    }
 
-    const data = await API.runAgent(activeUser.id, appId);
+    const demoKeyResponse = await API.demoDeveloperKey();
+    const demoApiKey = demoKeyResponse.apiKey?.key;
+    if (demoApiKey) sessionStorage.setItem('dodoarc_api_key', demoApiKey);
+
+    const demoApp = demoKeyResponse.app;
+    if (demoApp?.id) {
+      sessionStorage.setItem('dodoarc_latest_app', JSON.stringify({
+        app: demoApp,
+        embed: '',
+        checkoutUrl: `/checkout/${demoApp.id}`
+      }));
+    }
+
+    const { user } = await API.demoUser();
+    const appId = demoApp?.id || getActiveAppId();
+    if (!appId) throw new Error('No app available. Create an app in Developer Portal first.');
+
+    const data = await API.runAgent(user.id, appId, demoApiKey);
     if (!data.success) throw new Error(data.error || 'Agent run failed');
     renderAgentOutput(output, data.result);
     showToast(`Agent run complete - ${data.result.signal} signal, ${data.result.totalUsdcSettled.toFixed(4)} USDC settled`);
@@ -695,13 +709,17 @@ async function runFullDemo() {
 
   try {
     showToast('Step 1/3: simulating Dodo payment');
-    const payment = await API.demoPayment();
+    await API.demoPayment();
     await sleep(700);
-    const { user } = await API.demoUser();
+
+    showToast('Step 2/3: running agent and x402 settlements');
     const demoKeyResponse = await API.demoDeveloperKey();
     const demoApiKey = demoKeyResponse.apiKey?.key;
-    showToast('Step 2/3: running agent and x402 settlements');
-    const result = await API.runAgent(user.id, payment.app?.id || demoKeyResponse.app?.id || null, demoApiKey);
+    if (demoApiKey) sessionStorage.setItem('dodoarc_api_key', demoApiKey);
+
+    const { user } = await API.demoUser();
+    const appId = demoKeyResponse.app?.id;
+    const result = await API.runAgent(user.id, appId, demoApiKey);
     await sleep(700);
     showToast(`Step 3/3: ${result.result.signal} signal, ${result.result.totalUsdcSettled.toFixed(4)} USDC settled`);
     await renderView('overview');

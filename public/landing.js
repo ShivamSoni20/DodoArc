@@ -53,12 +53,6 @@ document.querySelectorAll('.plan-btn[data-plan-id]').forEach((button) => {
   });
 });
 
-const heroSub = document.querySelector('.hero-sub');
-if (heroSub) {
-  heroSub.textContent =
-    'The programmable spend-control layer for AI agent products. Human users pay in fiat. Agents spend against policy. Every tool call settles on Solana.';
-}
-
 const heroStats = document.querySelectorAll('.hero-card-float .float-stat');
 if (heroStats.length >= 3) {
   heroStats[0].innerHTML = `
