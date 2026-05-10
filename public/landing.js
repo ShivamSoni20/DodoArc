@@ -52,3 +52,25 @@ document.querySelectorAll('.plan-btn[data-plan-id]').forEach((button) => {
     }
   });
 });
+
+const heroSub = document.querySelector('.hero-sub');
+if (heroSub) {
+  heroSub.textContent =
+    'The programmable spend-control layer for AI agent products. Human users pay in fiat. Agents spend against policy. Every tool call settles on Solana.';
+}
+
+const heroStats = document.querySelectorAll('.hero-card-float .float-stat');
+if (heroStats.length >= 3) {
+  heroStats[0].innerHTML = `
+    <div class="float-stat-label">What DodoArc Does</div>
+    <div class="float-stat-value" style="font-size:1.1rem;line-height:1.4;">Human pays fiat</div>
+    <div class="float-stat-sub">UPI - Card - 150 countries</div>`;
+  heroStats[1].innerHTML = `
+    <div class="float-stat-label">Agent spends credits</div>
+    <div class="float-stat-value" style="font-size:1.1rem;line-height:1.4;">Policy enforced</div>
+    <div class="float-stat-sub">Cap - Pause - Approve</div>`;
+  heroStats[2].innerHTML = `
+    <div class="float-stat-label">Tool calls settle</div>
+    <div class="float-stat-value" style="font-size:1.1rem;line-height:1.4;">USDC on Solana</div>
+    <div class="float-stat-sub">x402 - verifiable receipt</div>`;
+}

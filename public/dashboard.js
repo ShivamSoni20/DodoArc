@@ -4,16 +4,23 @@ let refreshTimer;
 
 const main = document.getElementById('db-main-content');
 
+function developerHeaders(headers = {}) {
+  const apiKey = getDeveloperApiKey();
+  return apiKey ? { ...headers, 'x-api-key': apiKey } : headers;
+}
+
 const API = {
-  subscriptions: () => getJson('/api/subscriptions'),
-  events: () => getJson('/api/subscriptions/events'),
-  credits: (id) => getJson(`/api/credits/${id}`),
-  webhookLog: () => getJson('/api/webhooks/log'),
-  settlement: () => getJson('/api/solana/settlement-log'),
-  agentRuns: () => getJson('/api/agent/runs'),
+  platformSubscriptions: () => getJson('/api/subscriptions'),
+  platformEvents: () => getJson('/api/subscriptions/events'),
+  platformWebhookLog: () => getJson('/api/webhooks/log'),
+  platformSettlement: () => getJson('/api/solana/settlement-log'),
+  platformMetrics: () => getJson('/api/dashboard/metrics'),
+  credits: (id, appId = null) => getJson(`/api/credits/${id}${appId ? `?appId=${encodeURIComponent(appId)}` : ''}`, {
+    headers: developerHeaders()
+  }),
+  agentRuns: () => getJson('/api/agent/runs', { headers: developerHeaders() }),
   walletStatus: () => getJson('/api/solana/wallet-status'),
   plans: () => getJson('/api/plans'),
-  metrics: () => getJson('/api/dashboard/metrics'),
   demoUser: () => getJson('/api/demo/user'),
   demoPayment: () => getJson('/api/demo/simulate-payment', { method: 'POST' }),
   demoDeveloperKey: () => getJson('/api/demo/developer-key', { method: 'POST' }),
@@ -31,16 +38,36 @@ const API = {
     body: JSON.stringify(payload)
   }),
   developerMe: () => getJson('/api/developer/me', {
-    headers: { 'x-api-key': getDeveloperApiKey() }
+    headers: developerHeaders()
   }),
-  runAgent: (userId) => getJson('/api/agent/run', {
+  getAppPolicy: (appId) => getJson(`/api/developer/apps/${appId}/policy`, {
+    headers: developerHeaders()
+  }),
+  updateAppPolicy: (appId, payload) => getJson(`/api/developer/apps/${appId}/policy`, {
+    method: 'PUT',
+    headers: developerHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  }),
+  pauseApp: (appId) => getJson(`/api/developer/apps/${appId}/pause`, {
+    method: 'POST',
+    headers: developerHeaders()
+  }),
+  resumeApp: (appId) => getJson(`/api/developer/apps/${appId}/resume`, {
+    method: 'POST',
+    headers: developerHeaders()
+  }),
+  appUsers: (appId) => getJson(`/api/developer/apps/${appId}/users`, {
+    headers: developerHeaders()
+  }),
+  mcpDiscovery: () => getJson('/.well-known/mcp'),
+  runAgent: (userId, appId = null, apiKey = getDeveloperApiKey()) => getJson('/api/agent/run', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': getDeveloperApiKey()
+      ...(apiKey ? { 'x-api-key': apiKey } : {})
     },
-    body: JSON.stringify({ userId, agentName: 'Trading Signal Agent' })
-  })
+    body: JSON.stringify({ userId, appId, agentName: 'Trading Signal Agent' })
+  }),
 };
 
 function getDeveloperApiKey() {
@@ -55,11 +82,22 @@ function getLatestDeveloperApp() {
   }
 }
 
+function getActiveAppId() {
+  return getLatestDeveloperApp()?.app?.id || null;
+}
+
 async function ensureDeveloperApiKey() {
   const existing = getDeveloperApiKey();
   if (existing) return existing;
   const data = await API.demoDeveloperKey();
   sessionStorage.setItem('dodoarc_api_key', data.apiKey.key);
+  if (data.app) {
+    sessionStorage.setItem('dodoarc_latest_app', JSON.stringify({
+      app: data.app,
+      embed: '',
+      checkoutUrl: `/checkout/${data.app.id}`
+    }));
+  }
   return data.apiKey.key;
 }
 
@@ -257,10 +295,10 @@ function settlementWidgetLive(receipts = [], totalSettled = null) {
 const views = {
   overview: async () => {
     const [metrics, { subscriptions = [] }, { log = [] }, settlement] = await Promise.all([
-      API.metrics(),
-      API.subscriptions(),
-      API.webhookLog(),
-      API.settlement()
+      API.platformMetrics(),
+      API.platformSubscriptions(),
+      API.platformWebhookLog(),
+      API.platformSettlement()
     ]);
 
     return `
@@ -283,13 +321,49 @@ const views = {
       ${subscriberTableWidget(subscriptions)}`;
   },
 
+  apps: async () => {
+    if (!getDeveloperApiKey()) {
+      return developerAuthState('My Apps', 'Register as a developer to view app-scoped subscriptions, users, and policy state.');
+    }
+
+    const { apps = [] } = await API.developerMe();
+    if (!apps.length) {
+      return `<div class="dash-page-title">My Apps</div><div class="dash-widget">${emptyState('No apps yet. Create one in the Developer Portal.')}</div>`;
+    }
+
+    const appRows = await Promise.all(apps.map(async (app) => ({
+      app,
+      policy: (await API.getAppPolicy(app.id)).policy,
+      users: (await API.appUsers(app.id)).users
+    })));
+
+    return `
+      <div class="dash-page-title">My Apps</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each app gets its own checkout, users, and spend policy.</div>
+      ${appRows.map(({ app, policy, users }) => `
+        <div class="dash-widget" style="margin-bottom:1rem;">
+          <div class="widget-title">
+            <span>${escapeHtml(app.name)}</span>
+            <span class="status-pill ${policy?.paused ? 'sp-paused' : 'sp-active'}">${policy?.paused ? 'Paused' : 'Active'}</span>
+          </div>
+          <div style="font-size:0.75rem;color:var(--ink-soft);margin-bottom:0.8rem;">${escapeHtml(app.description || 'Agent product')}</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;">
+            ${policyMetric('Plan', app.planId)}
+            ${policyMetric('Users', String(users.length))}
+            ${policyMetric('Per run', `${policy?.max_credits_per_run ?? 50} cr`)}
+            ${policyMetric('Daily cap', `${policy?.daily_spend_cap ?? 500} cr`)}
+          </div>
+        </div>
+      `).join('')}`;
+  },
+
   subscribers: async () => {
-    const { subscriptions = [] } = await API.subscriptions();
+    const { subscriptions = [] } = await API.platformSubscriptions();
     return `<div class="dash-page-title">Subscribers</div><div class="dash-page-sub" style="margin-bottom:1.25rem;">${subscriptions.length} total subscribers</div><div class="dash-widget">${subscriberTableHTML(subscriptions)}</div>`;
   },
 
   webhooks: async () => {
-    const { log = [] } = await API.webhookLog();
+    const { log = [] } = await API.platformWebhookLog();
     return `
       <div class="dash-page-title">Webhook Log</div>
       <div class="dash-page-sub" style="margin-bottom:1.25rem;">All Dodo webhook events received directly from the webhook endpoint, with idempotency status and payload details.</div>
@@ -305,16 +379,16 @@ const views = {
   },
 
   agents: async () => {
-    const [{ runs = [] }, settlement] = await Promise.all([API.agentRuns(), API.settlement()]);
+    const [{ runs = [] }, settlement] = await Promise.all([API.agentRuns(), API.platformSettlement()]);
     const receipts = settlement.receipts || [];
     const totalSettled = settlement.totalSettled || 0;
     return `
       <div class="dash-page-title">Agent Runs</div>
-      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each run consumes 10 credits and creates x402-style USDC settlement receipts.</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each run consumes 10 credits, checks spend policy, and creates x402-style USDC settlement receipts.</div>
       <div class="dash-widget" style="margin-bottom:1rem;background:var(--olive-mist);border-color:rgba(107,124,92,0.3);">
         <div class="widget-title">Run Demo Agent</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div style="flex:1;font-size:0.82rem;color:var(--ink-soft);line-height:1.6;">Trading Signal Agent calls paid market data, sentiment, and signal tools. It costs 10 credits and settles 0.0035 USDC across 3 tool calls.</div>
+          <div style="flex:1;font-size:0.82rem;color:var(--ink-soft);line-height:1.6;">Trading Signal Agent calls paid market data, sentiment, and signal tools. It costs 10 credits, is enforced by app policy, and settles 0.0035 USDC across 3 tool calls.</div>
           <button id="run-agent-btn" onclick="runDemoAgent()" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.65rem 1.5rem;font-family:'Instrument Sans',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">Run Agent (10 credits)</button>
         </div>
         <div id="agent-run-output" style="display:none;margin-top:1rem;"></div>
@@ -329,12 +403,13 @@ const views = {
       </div>`;
   },
 
-  fiat: async () => {
-    const metrics = await API.metrics();
-    return `<div class="dash-page-title">Fiat Revenue</div><div class="dash-page-sub">Revenue from active Dodo subscriptions and top-up events.</div>${revenueChartWidget(metrics.monthlyRevenue || [])}`;
+  billing: async () => {
+    const metrics = await API.platformMetrics();
+    return `<div class="dash-page-title">Billing</div><div class="dash-page-sub">Revenue from active Dodo subscriptions and credit top-ups.</div>${revenueChartWidget(metrics.monthlyRevenue || [])}`;
   },
+  fiat: async () => views.billing(),
   flow: async () => {
-    const [metrics, settlement] = await Promise.all([API.metrics(), API.settlement()]);
+    const [metrics, settlement] = await Promise.all([API.platformMetrics(), API.platformSettlement()]);
     const lastSettlement = (settlement.receipts || [])[0];
     return `
       <div class="dash-page-title">DodoArc Flow</div>
@@ -355,11 +430,107 @@ const views = {
       </div>`;
   },
   settlement: async () => {
-    const settlement = await API.settlement();
+    const settlement = await API.platformSettlement();
     return `<div class="dash-page-title">USDC Settlement</div><div class="dash-page-sub">Solana devnet settlement readiness.</div>${settlementWidgetLive(settlement.receipts || [], settlement.totalSettled || 0)}`;
   },
+  policies: async () => {
+    if (!getDeveloperApiKey()) {
+      return developerAuthState('Spend Policies', 'Spend policies require a developer API key. Register first, then tune limits, pause apps, or raise caps.');
+    }
+
+    const { apps = [] } = await API.developerMe();
+    if (!apps.length) {
+      return `<div class="dash-page-title">Spend Policies</div><div class="dash-widget">${emptyState('No apps yet. Create an app in Developer Portal first.')}</div>`;
+    }
+
+    const rows = await Promise.all(apps.map(async (app) => ({
+      app,
+      policy: (await API.getAppPolicy(app.id)).policy,
+      users: (await API.appUsers(app.id)).users
+    })));
+
+    return `
+      <div class="dash-page-title">Spend Policies</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Control how much each app's agents can spend per run and per day. Pause apps instantly.</div>
+      ${rows.map(({ app, policy, users }) => `
+        <div class="dash-widget" style="margin-bottom:1rem;">
+          <div class="widget-title">
+            <span>${escapeHtml(app.name)}</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="status-pill ${policy?.paused ? 'sp-paused' : 'sp-active'}">${policy?.paused ? 'Paused' : 'Active'}</span>
+              ${policy?.paused
+                ? `<button onclick="resumeApp('${app.id}')" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:2px 10px;font-size:0.7rem;font-weight:600;cursor:pointer;">Resume</button>`
+                : `<button onclick="pauseApp('${app.id}')" style="background:#A32D2D;color:var(--white);border:none;border-radius:100px;padding:2px 10px;font-size:0.7rem;font-weight:600;cursor:pointer;">Pause</button>`
+              }
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;margin-bottom:1rem;">
+            ${policyMetric('Max per run', `${policy?.max_credits_per_run ?? 50} credits`)}
+            ${policyMetric('Daily cap', `${policy?.daily_spend_cap ?? 500} credits`)}
+            ${policyMetric('Approval above', `${policy?.require_approval_above ?? 100} credits`)}
+            ${policyMetric('App users', String(users.length))}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input id="maxrun-${app.id}" type="number" min="1" value="${policy?.max_credits_per_run ?? 50}" style="width:140px;padding:0.55rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);">
+            <input id="cap-${app.id}" type="number" min="0" value="${policy?.daily_spend_cap ?? 500}" style="width:140px;padding:0.55rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);">
+            <button onclick="updatePolicy('${app.id}')" style="background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.5rem 1rem;font-size:0.75rem;font-weight:600;cursor:pointer;">Save policy</button>
+          </div>
+          <div style="margin-top:0.8rem;font-size:0.72rem;color:var(--ink-soft);">If a run would exceed the per-run limit or daily cap, it is rejected before credits are deducted.</div>
+        </div>
+      `).join('')}`;
+  },
+  trace: async () => {
+    const [{ runs = [] }, settlement, { log = [] }] = await Promise.all([
+      API.agentRuns().catch(() => ({ runs: [] })),
+      API.platformSettlement(),
+      API.platformWebhookLog()
+    ]);
+
+    const latestRun = runs[0];
+    const runReceipts = latestRun ? (settlement.receipts || []).filter((receipt) => receipt.agentRunId === latestRun.run_id) : [];
+    const latestWebhook = log[0];
+
+    return `
+      <div class="dash-page-title">Live Trace</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Every event in the DodoArc pipeline - from checkout to settlement - traced in one view.</div>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        ${traceEvent('Checkout', 'Dodo payment session created', latestWebhook?.event_id || null, latestWebhook?.received_at, Boolean(latestWebhook))}
+        ${traceEvent('Webhook', 'payment.succeeded received and idempotency checked', latestWebhook?.event_id || null, latestWebhook?.processed_at, latestWebhook?.status === 'processed')}
+        ${traceEvent('Credits', 'Activated against app policy', latestRun ? `-${latestRun.credits_used} credits reserved` : null, latestRun?.created_at, Boolean(latestRun))}
+        ${traceEvent('Policy Check', 'Daily cap, per-run limit, and pause status enforced', latestRun?.app_id || getActiveAppId(), latestRun?.created_at, Boolean(latestRun))}
+        ${traceEvent('Agent Run', `Signal: ${latestRun?.result?.signal || '-'} - ${latestRun?.agent_name || 'No run yet'}`, latestRun?.run_id || null, latestRun?.completed_at, latestRun?.status === 'completed')}
+        ${runReceipts.map((receipt) => traceEvent(`x402 -> ${receipt.tool}`, `${Number(receipt.amountUsdc || 0).toFixed(4)} USDC settled on Solana devnet`, receipt.signature ? `${String(receipt.signature).slice(0, 14)}...` : null, receipt.timestamp, true, receipt.explorer)).join('')}
+      </div>`;
+  },
+  mcp: async () => {
+    const mcpData = await API.mcpDiscovery();
+    const tools = mcpData.tools || ['check_credits', 'consume_credits', 'run_agent', 'get_settlement_log', 'get_dashboard_metrics'];
+    const config = {
+      name: 'DodoArc',
+      command: 'node',
+      args: ['mcp.js'],
+      transport: 'stdio',
+      tools
+    };
+    return `
+      <div class="dash-page-title">MCP Tools</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">AI agents can call DodoArc directly via MCP - no human in the loop.</div>
+      <div class="dash-widget" style="margin-bottom:1rem;">
+        <div class="widget-title">MCP Server Config</div>
+        <pre id="mcp-config" style="background:var(--ink);color:#9FE1CB;padding:1rem;border-radius:var(--r-md);font-size:0.7rem;overflow-x:auto;white-space:pre-wrap;">${escapeHtml(JSON.stringify(config, null, 2))}</pre>
+        <button onclick="copyMcpConfig()" style="margin-top:8px;background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.4rem 0.9rem;font-size:0.75rem;cursor:pointer;">Copy config</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        ${tools.map((tool) => `
+          <div class="dash-widget">
+            <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--olive-dark);font-weight:600;margin-bottom:6px;">${tool}</div>
+            <div style="font-size:0.72rem;color:var(--ink-soft);">${mcpToolDesc(tool)}</div>
+          </div>
+        `).join('')}
+      </div>`;
+  },
   credits: async () => {
-    const { subscriptions = [] } = await API.subscriptions();
+    const { subscriptions = [] } = await API.platformSubscriptions();
     return `<div class="dash-page-title">Credits</div><div class="dash-page-sub">Credit consumption by subscription.</div>${creditUsageWidget(subscriptions)}`;
   },
   developer: async () => developerView(),
@@ -408,6 +579,58 @@ function latestAppOutput(data) {
   return `<div style="color:var(--olive);font-size:0.78rem;">Created ${escapeHtml(data.app.name)}. <a href="${data.checkoutUrl}" target="_blank" rel="noreferrer" style="color:var(--lavender-dark);font-weight:700;">Preview checkout</a></div>`;
 }
 
+function developerAuthState(title, message) {
+  return `
+    <div class="dash-page-title">${escapeHtml(title)}</div>
+    <div class="dash-widget" style="text-align:center;padding:2rem;">
+      <div style="font-size:1.5rem;margin-bottom:0.75rem;">Policy</div>
+      <div style="font-size:0.85rem;font-weight:600;color:var(--ink);margin-bottom:0.5rem;">Register as a developer first</div>
+      <div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:1rem;">${escapeHtml(message)}</div>
+      <button onclick="renderView('developer')" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.5rem 1.25rem;font-size:0.8rem;font-weight:600;cursor:pointer;">Go to Developer Portal</button>
+    </div>`;
+}
+
+function policyMetric(label, value) {
+  return `
+    <div style="background:var(--cream);border:1px solid var(--cream-dark);border-radius:var(--r-md);padding:0.8rem;text-align:center;">
+      <div style="font-size:0.6rem;color:var(--ink-soft);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${escapeHtml(label)}</div>
+      <div style="font-size:1rem;font-weight:600;color:var(--ink);">${escapeHtml(value)}</div>
+    </div>`;
+}
+
+function traceEvent(title, desc, id, timestamp, success, explorerUrl = null) {
+  return `
+    <div style="display:flex;gap:12px;align-items:flex-start;">
+      <div style="width:28px;height:28px;border-radius:50%;background:${success ? 'var(--olive)' : 'var(--cream-dark)'};
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;
+        font-size:0.7rem;color:${success ? 'var(--white)' : 'var(--ink-soft)'};">
+        ${success ? 'OK' : '...'}
+      </div>
+      <div style="flex:1;background:var(--white);border:1px solid var(--cream-dark);border-radius:var(--r-md);padding:0.75rem 1rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:0.82rem;font-weight:600;color:var(--ink);">${escapeHtml(title)}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--ink-soft);">${timestamp ? formatTime(timestamp) : '-'}</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--ink-soft);">${escapeHtml(desc)}</div>
+        ${id ? `<div style="margin-top:4px;">${explorerUrl
+          ? `<a href="${explorerUrl}" target="_blank" rel="noreferrer" style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--lavender-dark);">${escapeHtml(id)} -></a>`
+          : `<span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--ink-soft);">${escapeHtml(id)}</span>`
+        }</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function mcpToolDesc(tool) {
+  const descriptions = {
+    check_credits: 'Check remaining credits for a userId. Returns total, used, remaining, plan, and subscription status.',
+    consume_credits: 'Deduct credits before an agent action. Returns success or failure with remaining balance.',
+    run_agent: 'Run the DodoArc trading agent with policy enforcement. Returns signal, receipts, and USDC settled.',
+    get_settlement_log: 'Fetch recent x402 settlement receipts with Solana explorer links.',
+    get_dashboard_metrics: 'Get live platform metrics: MRR, subscribers, credits used, and USDC settled.'
+  };
+  return descriptions[tool] || 'DodoArc MCP tool.';
+}
+
 function flowNode(title, subtitle, stat) {
   return `
     <div style="min-width:120px;flex:1;background:var(--white);border:1px solid var(--cream-dark);border-radius:var(--r-md);padding:1rem;text-align:center;">
@@ -439,11 +662,13 @@ async function runDemoAgent() {
 
   try {
     await ensureDeveloperApiKey();
-    const { subscriptions = [] } = await API.subscriptions();
-    const active = subscriptions.find((sub) => sub.status === 'active') || subscriptions[0];
-    if (!active?.userId) throw new Error('Complete a Dodo checkout before running the agent.');
+    const appId = getActiveAppId();
+    if (!appId) throw new Error('Create or load a developer app before running the agent.');
+    const { users = [] } = await API.appUsers(appId);
+    const activeUser = users[0];
+    if (!activeUser?.id) throw new Error('Complete a checkout for this app before running the agent.');
 
-    const data = await API.runAgent(active.userId);
+    const data = await API.runAgent(activeUser.id, appId);
     if (!data.success) throw new Error(data.error || 'Agent run failed');
     renderAgentOutput(output, data.result);
     showToast(`Agent run complete - ${data.result.signal} signal, ${data.result.totalUsdcSettled.toFixed(4)} USDC settled`);
@@ -470,12 +695,13 @@ async function runFullDemo() {
 
   try {
     showToast('Step 1/3: simulating Dodo payment');
-    await API.demoPayment();
+    const payment = await API.demoPayment();
     await sleep(700);
     const { user } = await API.demoUser();
-    await ensureDeveloperApiKey();
+    const demoKeyResponse = await API.demoDeveloperKey();
+    const demoApiKey = demoKeyResponse.apiKey?.key;
     showToast('Step 2/3: running agent and x402 settlements');
-    const result = await API.runAgent(user.id);
+    const result = await API.runAgent(user.id, payment.app?.id || demoKeyResponse.app?.id || null, demoApiKey);
     await sleep(700);
     showToast(`Step 3/3: ${result.result.signal} signal, ${result.result.totalUsdcSettled.toFixed(4)} USDC settled`);
     await renderView('overview');
@@ -533,6 +759,29 @@ function shouldAutoRefresh(view = currentView) {
   return !['developer', 'apikeys'].includes(view);
 }
 
+async function pauseApp(appId) {
+  await API.pauseApp(appId);
+  showToast('App paused - all agent runs blocked');
+  renderView('policies');
+}
+
+async function resumeApp(appId) {
+  await API.resumeApp(appId);
+  showToast('App resumed - agent runs allowed');
+  renderView('policies');
+}
+
+async function updatePolicy(appId) {
+  const dailyCap = Number(document.getElementById(`cap-${appId}`)?.value || 500);
+  const maxRun = Number(document.getElementById(`maxrun-${appId}`)?.value || 50);
+  await API.updateAppPolicy(appId, {
+    daily_spend_cap: dailyCap,
+    max_credits_per_run: maxRun
+  });
+  showToast('Policy updated');
+  renderView('policies');
+}
+
 function copyApiKey() {
   const key = getDeveloperApiKey();
   if (key) navigator.clipboard.writeText(key).then(() => showToast('API key copied'));
@@ -541,6 +790,11 @@ function copyApiKey() {
 function copyEmbed() {
   const embed = document.getElementById('embed-code')?.textContent;
   if (embed) navigator.clipboard.writeText(embed).then(() => showToast('Embed code copied'));
+}
+
+function copyMcpConfig() {
+  const config = document.getElementById('mcp-config')?.textContent;
+  if (config) navigator.clipboard.writeText(config).then(() => showToast('MCP config copied'));
 }
 
 async function renderView(view) {
@@ -716,6 +970,31 @@ function parseWebhookPayload(event) {
   }
 }
 
+function rebuildSidebar() {
+  const sidebar = document.querySelector('.db-sidebar');
+  if (!sidebar) return;
+  sidebar.innerHTML = `
+    <div class="sidebar-section-label">Platform</div>
+    <div class="sidebar-item active" data-view="overview"><span class="sidebar-icon">Ov</span> Overview</div>
+    <div class="sidebar-item" data-view="apps"><span class="sidebar-icon">App</span> My Apps</div>
+    <div class="sidebar-item" data-view="policies"><span class="sidebar-icon">Pol</span> Spend Policies</div>
+    <div class="sidebar-section-label">Commerce</div>
+    <div class="sidebar-item" data-view="subscribers"><span class="sidebar-icon">Usr</span> Users</div>
+    <div class="sidebar-item" data-view="billing"><span class="sidebar-icon">Rs</span> Billing</div>
+    <div class="sidebar-item" data-view="settlement"><span class="sidebar-icon">Set</span> Settlements</div>
+    <div class="sidebar-section-label">Agents</div>
+    <div class="sidebar-item" data-view="agents"><span class="sidebar-icon">Run</span> Agent Runs</div>
+    <div class="sidebar-item" data-view="trace"><span class="sidebar-icon">Log</span> Live Trace</div>
+    <div class="sidebar-section-label">Developer</div>
+    <div class="sidebar-item" data-view="developer"><span class="sidebar-icon">Key</span> Register / Keys</div>
+    <div class="sidebar-item" data-view="webhooks"><span class="sidebar-icon">Web</span> Webhooks</div>
+    <div class="sidebar-item" data-view="mcp"><span class="sidebar-icon">MCP</span> MCP Tools</div>`;
+
+  document.querySelectorAll('.sidebar-item[data-view]').forEach((item) => {
+    item.addEventListener('click', () => renderView(item.dataset.view));
+  });
+}
+
 function initWebSocket() {
   const indicator = document.getElementById('live-indicator');
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -736,7 +1015,7 @@ function initWebSocket() {
       return;
     }
 
-    if (message.type === 'subscription_update' || message.type === 'agent_run_complete') {
+    if (['subscription_update', 'agent_run_complete', 'app_paused', 'app_resumed'].includes(message.type)) {
       if (indicator) indicator.style.color = 'var(--gold)';
       setTimeout(() => {
         if (indicator) indicator.style.color = 'var(--olive)';
@@ -744,6 +1023,8 @@ function initWebSocket() {
       if (shouldAutoRefresh()) renderView(currentView);
       if (message.type === 'subscription_update') showToast('Payment event received - dashboard refreshed');
       if (message.type === 'agent_run_complete') showToast('Agent run complete - dashboard refreshed');
+      if (message.type === 'app_paused') showToast('App paused - dashboard refreshed');
+      if (message.type === 'app_resumed') showToast('App resumed - dashboard refreshed');
     }
   };
 
@@ -756,10 +1037,7 @@ function initWebSocket() {
   };
 }
 
-document.querySelectorAll('.sidebar-item[data-view]').forEach((item) => {
-  item.addEventListener('click', () => renderView(item.dataset.view));
-});
-
+rebuildSidebar();
 restoreWalletState();
 tryAutoConnect();
 initWebSocket();

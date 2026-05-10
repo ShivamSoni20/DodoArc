@@ -6,7 +6,37 @@ beforeEach(() => db.resetForTests());
 
 function createApiKey(email = 'credits-dev@dodoarc.xyz') {
   const developer = db.createDeveloper(email, 'Credits Dev');
-  return db.generateApiKey(developer.id, 'Test Key').key;
+  return {
+    developer,
+    key: db.generateApiKey(developer.id, 'Test Key').key
+  };
+}
+
+function createScopedSubscription(email = 'consume@example.com') {
+  const developer = db.createDeveloper(`dev-${Date.now()}@dodoarc.xyz`, 'Scoped Credits Dev');
+  const app = db.createApp(developer.id, {
+    name: 'Scoped Credits App',
+    description: 'Scoped credits test app',
+    planId: 'plan_starter'
+  });
+  const user = db.getOrCreateUser(email, 'Scoped Credits User');
+  db.createSubscription({
+    userId: user.id,
+    planId: 'plan_starter',
+    status: 'active',
+    credits_total: 100,
+    credits_used: 0,
+    payment_method: 'test',
+    developer_id: developer.id,
+    app_id: app.id
+  });
+  db.registerAppUser(app.id, developer.id, user.id);
+  return {
+    user,
+    app,
+    developer,
+    apiKey: db.generateApiKey(developer.id, 'Scoped Credits Key').key
+  };
 }
 
 test('starter checkout activates a free subscription immediately', async () => {
@@ -23,26 +53,24 @@ test('starter checkout activates a free subscription immediately', async () => {
 });
 
 test('credits can be consumed from an active subscription', async () => {
-  const checkout = await request(app)
-    .post('/api/checkout/create')
-    .send({ planId: 'plan_starter', email: 'consume@example.com' })
-    .expect(200);
+  const scoped = createScopedSubscription();
 
   const result = await request(app)
     .post('/api/credits/consume')
-    .set('x-api-key', createApiKey())
-    .send({ userId: checkout.body.user.id, amount: 25, agentName: 'Research Agent' })
+    .set('x-api-key', scoped.apiKey)
+    .send({ userId: scoped.user.id, appId: scoped.app.id, amount: 25, agentName: 'Research Agent' })
     .expect(200);
 
   expect(result.body.remaining).toBe(75);
 });
 
-test('credit consumption returns 402 without an active subscription', async () => {
+test('credit consumption returns 404 without an active scoped subscription', async () => {
+  const { key } = createApiKey('no-sub-dev@dodoarc.xyz');
   await request(app)
     .post('/api/credits/consume')
-    .set('x-api-key', createApiKey('no-sub-dev@dodoarc.xyz'))
+    .set('x-api-key', key)
     .send({ userId: 'missing_user', amount: 1 })
-    .expect(402);
+    .expect(404);
 });
 
 test('credit consumption requires an API key', async () => {

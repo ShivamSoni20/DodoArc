@@ -61,13 +61,13 @@ test('POST /api/demo/simulate-payment adds credits', async () => {
 
 test('dashboard metrics credit usage increases after agent run', async () => {
   const { body: demo } = await request(app).get('/api/demo/user').expect(200);
-  const apiKey = createApiKey();
+  const demoKey = await request(app).post('/api/demo/developer-key').expect(201);
   const before = await request(app).get('/api/dashboard/metrics').expect(200);
 
   await request(app)
     .post('/api/agent/run')
-    .set('x-api-key', apiKey)
-    .send({ userId: demo.user.id })
+    .set('x-api-key', demoKey.body.apiKey.key)
+    .send({ userId: demo.user.id, appId: demo.app.id })
     .expect(200);
 
   const after = await request(app).get('/api/dashboard/metrics').expect(200);

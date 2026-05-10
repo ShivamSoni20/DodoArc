@@ -1,14 +1,19 @@
 const router = require('express').Router();
 const db = require('../services/db');
 const solana = require('../services/solana');
+const { optionalApiKey } = require('../middleware/auth');
 
 router.get('/settlement-config', (req, res) => {
   res.json(solana.getSettlementConfig());
 });
 
-router.get('/settlement-log', (req, res) => {
-  const receipts = db.getRecentSettlements(20);
-  const allReceipts = db.getRecentSettlements(1000);
+router.get('/settlement-log', optionalApiKey, (req, res) => {
+  const receipts = req.developer
+    ? db.getSettlementsByDeveloper(req.developer.id, 20)
+    : db.getRecentSettlements(20);
+  const allReceipts = req.developer
+    ? db.getSettlementsByDeveloper(req.developer.id, 1000)
+    : db.getRecentSettlements(1000);
   const totalSettled = allReceipts.reduce((sum, receipt) => sum + Number(receipt.amount_usdc || 0), 0);
 
   res.json({

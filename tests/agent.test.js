@@ -5,6 +5,12 @@ const db = require('../src/services/db');
 beforeEach(() => db.resetForTests());
 
 function createCreditedUser(email = 'agenttest@dodoarc.xyz') {
+  const developer = db.createDeveloper(`agent-dev-${Date.now()}@dodoarc.xyz`, 'Agent Dev');
+  const app = db.createApp(developer.id, {
+    name: 'Agent Test App',
+    description: 'Scoped agent test app',
+    planId: 'plan_pro'
+  });
   const user = db.getOrCreateUser(email, 'Agent Test');
   db.createSubscription({
     userId: user.id,
@@ -12,9 +18,13 @@ function createCreditedUser(email = 'agenttest@dodoarc.xyz') {
     status: 'active',
     credits_total: 100,
     credits_used: 0,
-    payment_method: 'test'
+    payment_method: 'test',
+    developer_id: developer.id,
+    app_id: app.id
   });
-  return user;
+  db.registerAppUser(app.id, developer.id, user.id);
+  const apiKey = db.generateApiKey(developer.id, 'Test Key').key;
+  return { user, developer, app, apiKey };
 }
 
 function createApiKey(email = 'agent-dev@dodoarc.xyz') {
@@ -23,13 +33,12 @@ function createApiKey(email = 'agent-dev@dodoarc.xyz') {
 }
 
 test('POST /api/agent/run returns signal and three x402 receipts', async () => {
-  const user = createCreditedUser();
-  const apiKey = createApiKey();
+  const scoped = createCreditedUser();
 
   const response = await request(app)
     .post('/api/agent/run')
-    .set('x-api-key', apiKey)
-    .send({ userId: user.id })
+    .set('x-api-key', scoped.apiKey)
+    .send({ userId: scoped.user.id, appId: scoped.app.id })
     .expect(200);
 
   expect(response.body.success).toBe(true);
@@ -39,20 +48,26 @@ test('POST /api/agent/run returns signal and three x402 receipts', async () => {
 });
 
 test('agent run deducts 10 credits', async () => {
-  const user = createCreditedUser('deduct@dodoarc.xyz');
-  const apiKey = createApiKey('deduct-dev@dodoarc.xyz');
-  const before = db.getRemainingCredits(user.id);
+  const scoped = createCreditedUser('deduct@dodoarc.xyz');
+  const before = db.getRemainingCredits(scoped.user.id, { developerId: scoped.developer.id, appId: scoped.app.id });
 
-  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
+  await request(app)
+    .post('/api/agent/run')
+    .set('x-api-key', scoped.apiKey)
+    .send({ userId: scoped.user.id, appId: scoped.app.id })
+    .expect(200);
 
-  expect(before - db.getRemainingCredits(user.id)).toBe(10);
+  expect(before - db.getRemainingCredits(scoped.user.id, { developerId: scoped.developer.id, appId: scoped.app.id })).toBe(10);
 });
 
 test('agent run stores settlement receipts', async () => {
-  const user = createCreditedUser('settlement@dodoarc.xyz');
-  const apiKey = createApiKey('settlement-dev@dodoarc.xyz');
+  const scoped = createCreditedUser('settlement@dodoarc.xyz');
 
-  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
+  await request(app)
+    .post('/api/agent/run')
+    .set('x-api-key', scoped.apiKey)
+    .send({ userId: scoped.user.id, appId: scoped.app.id })
+    .expect(200);
 
   const settlements = db.getRecentSettlements();
   expect(settlements.length).toBe(3);
@@ -61,29 +76,35 @@ test('agent run stores settlement receipts', async () => {
 });
 
 test('GET /api/agent/runs returns run history', async () => {
-  const user = createCreditedUser('runs@dodoarc.xyz');
-  const apiKey = createApiKey('runs-dev@dodoarc.xyz');
-  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
+  const scoped = createCreditedUser('runs@dodoarc.xyz');
+  await request(app)
+    .post('/api/agent/run')
+    .set('x-api-key', scoped.apiKey)
+    .send({ userId: scoped.user.id, appId: scoped.app.id })
+    .expect(200);
 
-  const response = await request(app).get('/api/agent/runs').expect(200);
+  const response = await request(app).get('/api/agent/runs').set('x-api-key', scoped.apiKey).expect(200);
 
   expect(Array.isArray(response.body.runs)).toBe(true);
   expect(response.body.runs[0].status).toBe('completed');
 });
 
 test('GET /api/solana/settlement-log returns receipts and total', async () => {
-  const user = createCreditedUser('log@dodoarc.xyz');
-  const apiKey = createApiKey('log-dev@dodoarc.xyz');
-  await request(app).post('/api/agent/run').set('x-api-key', apiKey).send({ userId: user.id }).expect(200);
+  const scoped = createCreditedUser('log@dodoarc.xyz');
+  await request(app)
+    .post('/api/agent/run')
+    .set('x-api-key', scoped.apiKey)
+    .send({ userId: scoped.user.id, appId: scoped.app.id })
+    .expect(200);
 
-  const response = await request(app).get('/api/solana/settlement-log').expect(200);
+  const response = await request(app).get('/api/solana/settlement-log').set('x-api-key', scoped.apiKey).expect(200);
 
   expect(Array.isArray(response.body.receipts)).toBe(true);
   expect(response.body.receipts.length).toBe(3);
   expect(response.body.totalSettled).toBeGreaterThan(0);
 });
 
-test('agent run fails with 402 when user has no credits', async () => {
+test('agent run fails with 404 when user is outside developer scope', async () => {
   const user = db.getOrCreateUser('broke@dodoarc.xyz', 'Broke User');
   const apiKey = createApiKey('broke-dev@dodoarc.xyz');
 
@@ -91,9 +112,9 @@ test('agent run fails with 402 when user has no credits', async () => {
     .post('/api/agent/run')
     .set('x-api-key', apiKey)
     .send({ userId: user.id })
-    .expect(402);
+    .expect(404);
 
-  expect(response.body.error).toMatch(/credits/i);
+  expect(response.body.code).toBe('SUBSCRIPTION_SCOPE_MISSING');
 });
 
 test('POST /api/agent/run requires an API key', async () => {

@@ -36,6 +36,8 @@ async function main() {
 
   let apiKey = '';
   let userId = '';
+  let demoApiKey = '';
+  let demoAppId = '';
 
   await check('health endpoint', async () => {
     const { response, body } = await request('/api/health');
@@ -86,7 +88,15 @@ async function main() {
     const { response, body } = await request('/api/demo/user');
     assert(response.ok, 'demo user failed');
     userId = body.user.id;
+    demoAppId = body.app.id;
     assert(body.subscription.credits_total > 0, 'demo credits missing');
+  });
+
+  await check('demo developer key', async () => {
+    const { response, body } = await request('/api/demo/developer-key', { method: 'POST' });
+    assert(response.status === 201, 'demo developer key failed');
+    demoApiKey = body.apiKey.key;
+    if (!demoAppId) demoAppId = body.app.id;
   });
 
   await check('simulate payment', async () => {
@@ -98,15 +108,17 @@ async function main() {
   await check('agent run with API key', async () => {
     const { response, body } = await request('/api/agent/run', {
       method: 'POST',
-      headers: { 'x-api-key': apiKey },
-      body: JSON.stringify({ userId })
+      headers: { 'x-api-key': demoApiKey },
+      body: JSON.stringify({ userId, appId: demoAppId })
     });
     assert(response.ok, 'agent run failed');
     assert(body.result.receipts.length === 3, 'expected 3 receipts');
   });
 
   await check('settlement log', async () => {
-    const { response, body } = await request('/api/solana/settlement-log');
+    const { response, body } = await request('/api/solana/settlement-log', {
+      headers: { 'x-api-key': demoApiKey }
+    });
     assert(response.ok, 'settlement log failed');
     assert(body.receipts.length >= 3, 'settlement receipts missing');
   });

@@ -1,8 +1,8 @@
 # DodoArc
 
-DodoArc is a billing OS for AI agent products. It lets users subscribe through Dodo Payments, activates credits after payment, runs credit-backed AI agents, and gives operators a live dashboard for subscriptions, webhook activity, credit usage, agent runs, and Solana x402-style settlement receipts.
+DodoArc is the programmable spend-control layer for AI agent products on Solana. Human users pay with familiar fiat checkout, agents spend against tenant-defined policy, and every paid tool call can produce a USDC settlement receipt on Solana.
 
-Built for the Dodo Payments track at the Solana Frontier hackathon, DodoArc starts with a practical wedge: human-to-agent billing first, with developer infrastructure for agent-operated payments.
+Built for the Dodo Payments track at the Solana Frontier hackathon, DodoArc starts with a practical wedge: human-to-agent billing first, then developer infrastructure for agent-operated payments with app-level controls.
 
 ## Milestone Status
 
@@ -79,6 +79,18 @@ Milestone 6 moves DodoArc from a single-app MVP toward a platform for external A
 - MCP server and discovery endpoint for agent-native access to credits, usage, agent runs, settlements, and dashboard metrics.
 - Dodo checkout verification script for testing live checkout creation when Dodo credentials and product IDs are configured.
 
+### Milestone 7: Programmable Spend Control
+
+Milestone 7 sharpens DodoArc into a multi-tenant control plane for agent spending:
+
+- Tenant-scoped subscriptions, events, agent runs, settlement receipts, and dashboard reads.
+- Per-app spend policies for daily caps, per-run caps, approval thresholds, and pause/resume controls.
+- Agent execution enforcement that blocks paused apps, cap violations, and approval-required runs before credits are consumed.
+- App user registration after Dodo webhook activation, linking paid users to developer apps.
+- Dashboard views for My Apps, Spend Policies, Live Trace, and MCP tool discovery.
+- Landing page copy reframed around the core primitive: fiat payment in, policy-controlled agent spend out, Solana settlement receipts on every tool call.
+- Tests covering default policies, policy updates, paused apps, resumed apps, daily caps, app users, and authenticated agent history.
+
 ## Architecture
 
 ```mermaid
@@ -105,6 +117,8 @@ flowchart LR
         Metrics["GET /api/dashboard/metrics"]
         Demo["GET/POST /api/demo/*"]
         Developer["GET/POST /api/developer/*"]
+        Policies["GET/PUT /api/developer/apps/:appId/policy"]
+        AppUsers["GET /api/developer/apps/:appId/users"]
         MCPDiscovery["GET /.well-known/mcp"]
     end
 
@@ -141,6 +155,8 @@ flowchart LR
     Dashboard --> Metrics
     Dashboard --> Demo
     Dashboard --> Developer
+    Dashboard --> Policies
+    Dashboard --> AppUsers
     Developer --> Embed
     Embed --> Checkout
     AppCheckout --> Checkout
@@ -168,6 +184,8 @@ flowchart LR
     Metrics --> MetricsService
     MetricsService --> SQLite
     Developer --> DeveloperService
+    Policies --> DeveloperService
+    AppUsers --> DeveloperService
     DeveloperService --> SQLite
     MCPService --> CreditEngine
     MCPService --> AgentService
@@ -228,8 +246,9 @@ sequenceDiagram
     API->>Dodo: Create checkout session
     Dodo-->>API: payment.succeeded webhook
     API-->>Agent: Credits available
-    Agent->>API: POST /api/agent/run with x-api-key
-    API-->>Agent: Signal + x402 settlement receipts
+    Agent->>API: POST /api/agent/run with x-api-key and appId
+    API->>API: Enforce app spend policy
+    API-->>Agent: Signal + x402 settlement receipts or policy block
 ```
 
 ## Agent Settlement Sequence
@@ -309,6 +328,7 @@ DodoArc/
 |   |-- credits.test.js
 |   |-- dashboard.test.js
 |   |-- developer.test.js
+|   |-- policies.test.js
 |   `-- webhook.test.js
 |-- mcp.js
 |-- server.js
@@ -389,12 +409,14 @@ flowchart LR
     Payment --> Webhook["Idempotent Webhook"]
     Webhook --> Credits["Credits Activated"]
     Credits --> Agent["Agent Run"]
-    Agent --> Settlement["x402 Settlement Receipt"]
+    Agent --> Policy["Spend Policy Check"]
+    Policy --> Settlement["x402 Settlement Receipt"]
     Settlement --> Persistence["SQLite Persistence"]
     Persistence --> Dashboard["Live Billing Dashboard"]
     Dashboard --> Developer["Developer Portal"]
     Developer --> Embed["Embeddable Checkout"]
+    Developer --> PolicyUI["Spend Policy UI"]
     Developer --> MCP["MCP Server"]
 ```
 
-DodoArc now demonstrates a testable billing and developer-platform foundation for AI agent products: Dodo Payments checkout, webhook-based activation, durable billing records, credit-backed agent execution, x402-style Solana settlement receipts, live operator metrics, developer API keys, embeddable checkout, and MCP-native agent access.
+DodoArc now demonstrates a testable billing and developer-platform foundation for AI agent products: Dodo Payments checkout, webhook-based activation, durable tenant-scoped billing records, credit-backed agent execution, app-level spend controls, x402-style Solana settlement receipts, live operator metrics, developer API keys, embeddable checkout, and MCP-native agent access.

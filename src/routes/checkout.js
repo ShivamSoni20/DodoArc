@@ -10,6 +10,9 @@ router.post('/create', async (req, res) => {
     }
 
     const app = appId ? db.getAppById(appId) : null;
+    if (appId && !app) {
+      return res.status(404).json({ error: 'App not found' });
+    }
     const effectivePlanId = app?.planId || planId;
     const plan = db.getPlanById(effectivePlanId);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
@@ -17,21 +20,32 @@ router.post('/create', async (req, res) => {
     const user = db.getOrCreateUser(email, name);
 
     if (plan.price === 0) {
-      db.upsertSubscription({
+      const subscription = db.upsertSubscription({
         userId: user.id,
         planId: plan.id,
         status: 'active',
         credits_total: plan.credits,
         credits_used: 0,
-        payment_method: 'free'
+        payment_method: 'free',
+        developer_id: app?.developerId || null,
+        app_id: app?.id || null
       });
+      if (app?.id && app?.developerId) {
+        db.registerAppUser(app.id, app.developerId, user.id);
+        db.ensureAppPolicy(app.id, app.developerId);
+      }
       db.logEvent('subscription_activated', {
         userId: user.id,
         email: user.email,
         planId: plan.id,
-        method: 'free'
+        method: 'free',
+        developerId: app?.developerId || null,
+        appId: app?.id || null
+      }, {
+        developerId: app?.developerId || null,
+        appId: app?.id || null
       });
-      return res.json({ success: true, type: 'free', user });
+      return res.json({ success: true, type: 'free', user, subscription });
     }
 
     const session = await dodo.createCheckoutSession({
@@ -55,6 +69,9 @@ router.post('/create', async (req, res) => {
       appId: app?.id || null,
       developerId: app?.developerId || null,
       checkoutMode: session.mode
+    }, {
+      developerId: app?.developerId || null,
+      appId: app?.id || null
     });
 
     res.json({

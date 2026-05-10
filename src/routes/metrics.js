@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const db = require('../services/db');
+const { optionalApiKey } = require('../middleware/auth');
 
 function formatInr(amount) {
   if (amount >= 100000) return `INR ${(amount / 100000).toFixed(1)}L`;
@@ -45,11 +46,19 @@ function buildMonthlyRevenue(events) {
   }));
 }
 
-router.get('/metrics', (req, res) => {
-  const subscriptions = db.getAllSubscriptions();
-  const events = db.getRecentEvents(200);
-  const settlements = db.getRecentSettlements(100);
-  const runs = db.getRecentRuns(100);
+router.get('/metrics', optionalApiKey, (req, res) => {
+  const subscriptions = req.developer
+    ? db.getSubscriptionsByDeveloper(req.developer.id)
+    : db.getAllSubscriptions();
+  const events = req.developer
+    ? db.getRecentEventsByDeveloper(req.developer.id, 200)
+    : db.getRecentEvents(200);
+  const settlements = req.developer
+    ? db.getSettlementsByDeveloper(req.developer.id, 100)
+    : db.getRecentSettlements(100);
+  const runs = req.developer
+    ? db.getRunsByDeveloper(req.developer.id, 100)
+    : db.getRecentRuns(100);
   const paidActiveSubscriptions = subscriptions.filter((sub) => {
     const plan = db.getPlanById(sub.planId);
     return sub.status === 'active' && Number(plan?.price || 0) > 0;

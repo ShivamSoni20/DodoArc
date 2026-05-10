@@ -31,7 +31,9 @@ function normalizePaymentData(data = {}) {
     customerId: customer.customer_id || data.customer_id || metadata.dodo_customer_id,
     email: customer.email || metadata.email,
     name: customer.name || metadata.name,
-    planId: metadata.planId || metadata.plan_id || data.planId
+    planId: metadata.planId || metadata.plan_id || data.planId,
+    appId: metadata.appId || metadata.app_id || data.appId || null,
+    developerId: metadata.developerId || metadata.developer_id || data.developerId || null
   };
 }
 
@@ -48,7 +50,10 @@ function activateCreditsFromPayment(eventType, data) {
   const user = db.getOrCreateUser(payment.email, payment.name);
   if (payment.customerId) db.updateUser(user.id, { dodo_customer_id: payment.customerId });
 
-  const existing = db.getSubscriptionByUser(user.id);
+  const existing = db.getSubscriptionByUser(user.id, {
+    developerId: payment.developerId,
+    appId: payment.appId
+  });
   const creditsTotal = existing ? existing.credits_total + plan.credits : plan.credits;
   const subscription = db.upsertSubscription({
     userId: user.id,
@@ -60,8 +65,15 @@ function activateCreditsFromPayment(eventType, data) {
     dodo_subscription_id: payment.subscriptionId,
     payment_method: 'dodo',
     last_payment_amount: payment.amount,
-    last_payment_currency: payment.currency
+    last_payment_currency: payment.currency,
+    developer_id: payment.developerId,
+    app_id: payment.appId
   });
+
+  if (payment.appId && payment.developerId) {
+    db.registerAppUser(payment.appId, payment.developerId, user.id);
+    db.ensureAppPolicy(payment.appId, payment.developerId);
+  }
 
   const actionTaken = existing
     ? `renewed_credits_+${plan.credits}`
@@ -75,7 +87,9 @@ function activateCreditsFromPayment(eventType, data) {
     credits: plan.credits,
     paymentId: payment.paymentId,
     amount: payment.amount,
-    currency: payment.currency
+    currency: payment.currency,
+    developerId: payment.developerId,
+    appId: payment.appId
   });
 
   return actionTaken;
@@ -86,14 +100,29 @@ function pauseSubscriptionFromFailure(data = {}) {
   if (!payment.email) return 'skipped_missing_email';
 
   const user = db.getOrCreateUser(payment.email, payment.name);
-  const subscription = db.getSubscriptionByUser(user.id);
+  const subscription = db.getSubscriptionByUser(user.id, {
+    developerId: payment.developerId,
+    appId: payment.appId
+  });
   if (!subscription) return 'skipped_no_subscription';
 
   db.updateSubscription(subscription.id, {
     status: 'paused',
     credits_total: subscription.credits_total
   });
-  db.logEvent('subscription_paused', { userId: user.id, reason: 'payment_failed' });
+  db.logEvent(
+    'subscription_paused',
+    {
+      userId: user.id,
+      reason: 'payment_failed',
+      developerId: payment.developerId,
+      appId: payment.appId
+    },
+    {
+      developerId: payment.developerId,
+      appId: payment.appId
+    }
+  );
   return `paused_subscription_${subscription.id}`;
 }
 
@@ -131,13 +160,26 @@ router.post('/dodo', (req, res) => {
 
     const { bodyText, event } = parseRawBody(req.body);
     eventId = getEventId(event, req.headers);
+    const paymentContext = normalizePaymentData(event.data || {});
 
     if (db.isWebhookAlreadyProcessed(eventId)) {
       return res.json({ received: true, duplicate: true, eventId });
     }
 
     db.logWebhookReceived(eventId, event.type || 'unknown', bodyText);
-    db.logEvent('webhook_received', { eventId, type: event.type });
+    db.logEvent(
+      'webhook_received',
+      {
+        eventId,
+        type: event.type,
+        developerId: paymentContext.developerId,
+        appId: paymentContext.appId
+      },
+      {
+        developerId: paymentContext.developerId,
+        appId: paymentContext.appId
+      }
+    );
 
     const actionTaken = processEvent(event);
     db.markWebhookProcessed(eventId, actionTaken);
