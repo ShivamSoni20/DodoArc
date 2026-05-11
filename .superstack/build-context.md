@@ -1,73 +1,134 @@
+phase	scaffold
+completed_at	2026-05-11 05:10:00 +0530
+project	DodoArc
+mvp_complete	true
+tests_passing	true
+devnet_deployed	false
+
 # DodoArc Build Context
 
-## Project
+## Scaffold Result
 
-DodoArc is a billing OS for AI agent products, built for the Dodo Payments track in the Colosseum Frontier hackathon.
+DodoArc has been built as a lightweight Node.js + Express + SQLite workspace for the Dodo Payments track, with Solana devnet settlement support and an MCP surface for agent-native usage.
 
-## Milestone 1
+The current repo is intentionally app-first rather than program-first:
 
-Goal: launch a working Dodo Payments checkout flow with webhook-driven credit activation.
+- Express API for checkout, webhook processing, credits, developer apps, policies, agent runs, and MCP discovery.
+- Static frontend in `public/` for landing, dashboard, embed widget, and app checkout preview.
+- SQLite persistence through `better-sqlite3`.
+- Solana devnet integration for wallet-aware settlement receipts.
+- MCP server surface via `mcp.js` and `src/mcp/server.js`.
 
-Implemented stack:
-- Node.js + Express backend
-- Static HTML/CSS frontend served from `public/index.html`
-- Dodo Payments checkout session integration through the `dodopayments` SDK when credentials are configured
-- Local mock checkout fallback for development without Dodo credentials
-- Standard Webhooks-style signature verification
-- In-memory users, subscriptions, credits, events, and webhook idempotency
-- Solana devnet-ready settlement config endpoint
+## Selected Architecture
 
-## Architecture Decisions
+- Node.js + Express for a fast hackathon delivery path.
+- SQLite for persistent local state without external infra dependency.
+- Dodo Payments for checkout session creation and verified webhook-based billing activation.
+- Solana devnet for settlement proof and x402-style USDC receipt simulation.
+- Multi-tenant developer platform layer with API-key auth and app-scoped policy enforcement.
+- MCP discovery + tools so AI agents can use DodoArc directly as billing infrastructure.
 
-- Use existing Dodo-hosted checkout for Milestone 1 instead of building payment UI.
-- Keep credits in an in-memory store for the hackathon MVP, with a clean service boundary for SQLite/Postgres later.
-- Treat webhooks as the source of truth for paid plan activation.
-- Keep Solana work devnet-first. Milestone 1 exposes settlement config only; real USDC transfer/x402 settlement is Milestone 2.
+## First MVP Demo
+
+Dodo checkout or local demo payment  
+-> verified webhook / idempotent event handling  
+-> subscription + credit activation  
+-> app-user registration  
+-> app policy enforcement  
+-> agent run  
+-> x402-style settlement receipts  
+-> live dashboard trace across payment, credits, runs, and settlements
+
+## Implementation Notes
+
+- No Anchor program is required for the current MVP.
+- Solana is devnet-first and optional at runtime; the app remains runnable with mock settlement receipts when wallet/private-key config is absent.
+- `npm.cmd test` passes locally with `DB_PATH=C:/tmp/dodoarc-test.db`.
+- `npm.cmd run smoke` validates the end-to-end local demo surface.
+- MCP discovery is exposed at `/.well-known/mcp`, with scoped tools implemented in `src/mcp/server.js`.
+- The repo already includes `.superstack/build-context.md`; this file now reflects the current Milestone 7 implementation state.
+
+## Immediate Next Steps
+
+- Record the final demo using the Milestone 7 dashboard: checkout, webhook, policy gate, agent run, and settlement trace.
+- Add one stronger live Solana settlement demo path when wallet credentials are configured.
+- Improve dashboard presentation around operator metrics, revenue visibility, and judge-facing flow clarity.
+- Prepare submission copy, demo script, screenshots, and proof assets around the "programmable spend-control layer" positioning.
 
 ## Build Status
 
-- Milestone 1 MVP: implemented
-- Milestone 2 MVP: implemented
-- Milestone 3 MVP: implemented
-- Tests passing: yes
-- Devnet deployed: no
-- Program ID: not applicable yet
+Completed milestones:
 
-## Milestone 2
+### Milestone 1: Checkout and Credits
 
-Goal: improve webhook reliability and split the product site from the operator dashboard.
+- Added plan discovery and Dodo checkout creation.
+- Added local checkout fallback for demo mode.
+- Added webhook-driven credit activation.
+- Added initial dashboard visibility for subscriptions and credits.
 
-Implemented:
-- SQLite persistence through `better-sqlite3`
-- Durable users, subscriptions, events, and webhook delivery log
-- Idempotent webhook processing using event IDs
-- Retry-aware webhook status tracking with retry counts and failure messages
-- Webhook log API at `/api/webhooks/log`
-- Landing page at `/`
-- Standalone dashboard at `/dashboard`
-- Dashboard view router with Overview, Subscribers, Webhooks, Credits, Settlement, and related views
-- Solana devnet settlement-log endpoint for the next x402/USDC milestone
+### Milestone 2: Persistent Billing Dashboard
 
-Solana status:
-- Still devnet-first.
-- Real devnet USDC transfer path exists when `SOLANA_PRIVATE_KEY` and `X402_TOOL_PROVIDER_WALLET` are configured.
-- Mock x402 receipts are used automatically without a private key so the demo remains runnable.
-- Phantom/browser wallet connect is wired in the dashboard.
+- Added SQLite persistence for users, subscriptions, events, and webhook logs.
+- Added landing page and dashboard split.
+- Added webhook idempotency and processing visibility.
+- Added durable webhook log and billing dashboard foundation.
 
-## Milestone 3
+### Milestone 3: Agent Runs and Solana Settlement Receipts
 
-Goal: ship a working agent flow that consumes credits and creates x402-style Solana settlement receipts.
+- Added `POST /api/agent/run` and `GET /api/agent/runs`.
+- Added credit deduction before agent execution.
+- Added x402-style settlement receipt generation per run.
+- Added Solana devnet-ready settlement log and explorer-linked receipts.
 
-Implemented:
-- Phantom wallet connect and demo wallet fallback in the dashboard
-- `POST /api/solana/connect-wallet`
-- `GET /api/solana/wallet-status`
-- Demo Trading Signal Agent service
-- `POST /api/agent/run`
-- `GET /api/agent/runs`
-- Agent run persistence in SQLite
-- Settlement receipt persistence in SQLite
-- `/api/solana/settlement-log` now returns real stored receipts
-- Mock x402 settlement by default, real devnet USDC transfer when wallet/private key are configured
-- Dashboard Agents view with run button, receipts, run history, and live settlement data
-- Devnet setup helper at `scripts/setup-devnet.js`
+### Milestone 4: Live Operator Dashboard
+
+- Added live metrics aggregation from SQLite state.
+- Added overview, billing, credit, and settlement views backed by real data.
+- Added demo flow linking payment simulation to agent execution and receipts.
+- Added live refresh behavior for webhook and agent-run activity.
+
+### Milestone 5: Demo Readiness and QA
+
+- Added `scripts/smoke-test.js`.
+- Added `scripts/check-env.js`.
+- Added repeatable local demo verification path for judging and recording.
+
+### Milestone 6: Developer Platform
+
+- Added developers, API keys, developer apps, and embed checkout support.
+- Added `/embed/dodoarc.js`.
+- Added app checkout preview route at `/checkout/:appId`.
+- Added API-key auth for protected developer and agent actions.
+- Added MCP discovery and MCP tool surface.
+
+### Milestone 7: Programmable Spend Control
+
+- Added app policies for daily caps, per-run caps, approval thresholds, and pause/resume.
+- Added tenant-scoped subscriptions, runs, settlements, and dashboard reads.
+- Added app-user registration from checkout and webhook activation.
+- Added policy enforcement before agent runs and credit consumption.
+- Added dashboard views for My Apps, Spend Policies, Live Trace, and MCP tools.
+- Added demo-flow hardening so agent runs and simulated payments preserve developer/app scope.
+
+## Current Verification
+
+- `npm.cmd test`: passing (`35/35`)
+- `npm.cmd run smoke`: passing (`13/13`)
+- `node --check public/dashboard.js`: passing
+- `GET /api/health`: returns `status: ok`
+
+## Current Known Constraints
+
+- Solana settlement still falls back to mock receipts unless runtime wallet credentials are configured.
+- The app uses SQLite local persistence rather than a hosted production database.
+- Revenue and dashboard views are optimized for demo and operator visibility, not yet for multi-workspace production analytics.
+
+## Pipeline Handoff
+
+pipeline.ingestion_method: verified webhook
+
+pipeline.data_types: Dodo checkout / payment / subscription events, app policies, agent runs, settlement receipts
+
+pipeline.storage: SQLite local persistence
+
+pipeline.backfill_implemented: false

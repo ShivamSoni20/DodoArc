@@ -251,9 +251,16 @@ function creditUsageWidget(subscriptions) {
 function revenueChartWidget(monthlyRevenue = []) {
   const maxInr = Math.max(...monthlyRevenue.map((item) => Number(item.inr || 0)), 1);
   const maxUsdc = Math.max(...monthlyRevenue.map((item) => Number(item.usdc || 0)), 1);
+  const totalInr = monthlyRevenue.reduce((sum, item) => sum + Number(item.inr || 0), 0);
+  const totalInrFormatted = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    notation: 'compact',
+    maximumFractionDigits: 1
+  }).format(totalInr || 0);
   const bars = monthlyRevenue.map((item) => {
-    const inrHeight = Math.max(4, Math.round((Number(item.inr || 0) / maxInr) * 70));
-    const usdcHeight = Math.max(4, Math.round((Number(item.usdc || 0) / maxUsdc) * 70));
+    const inrHeight = Math.max(8, Math.round((Number(item.inr || 0) / maxInr) * 170));
+    const usdcHeight = Math.max(8, Math.round((Number(item.usdc || 0) / maxUsdc) * 170));
     return `
       <div class="bar-group">
         <div class="bar revenue" style="height:${inrHeight}px;" title="INR ${Number(item.inr || 0).toFixed(2)}"></div>
@@ -262,9 +269,25 @@ function revenueChartWidget(monthlyRevenue = []) {
       </div>`;
   }).join('');
 
-  return `<div class="dash-widget">
+  return `<div class="dash-widget dash-widget--tall">
     <div class="widget-title">Revenue (6 months) <span class="widget-badge wb-live">Live</span></div>
-    <div class="mini-chart">${bars || emptyState('No revenue data yet.')}</div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;margin-bottom:0.9rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:2.1rem;line-height:1;color:var(--ink);">${totalInrFormatted}</div>
+        <div style="font-size:0.72rem;color:var(--ink-soft);margin-top:0.25rem;">Rolling 6-month fiat revenue across all subscriptions</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:0.35rem;font-size:0.68rem;color:var(--ink-soft);">
+          <span style="width:10px;height:10px;border-radius:999px;background:var(--olive);display:inline-block;"></span>
+          Revenue
+        </div>
+        <div style="display:flex;align-items:center;gap:0.35rem;font-size:0.68rem;color:var(--ink-soft);">
+          <span style="width:10px;height:10px;border-radius:999px;background:var(--lavender);display:inline-block;"></span>
+          Settled
+        </div>
+      </div>
+    </div>
+    <div class="mini-chart mini-chart--hero">${bars || emptyState('No revenue data yet.')}</div>
   </div>`;
 }
 

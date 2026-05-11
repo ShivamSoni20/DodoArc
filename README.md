@@ -1,105 +1,52 @@
 # DodoArc
 
-DodoArc is the programmable spend-control layer for AI agent products on Solana. Human users pay with familiar fiat checkout, agents spend against tenant-defined policy, and every paid tool call can produce a USDC settlement receipt on Solana.
+DodoArc is the programmable spend-control layer for AI agent products. Human users pay with familiar fiat checkout, agents spend against app-defined policy, and every paid tool call can produce a verifiable settlement receipt on Solana.
 
-Built for the Dodo Payments track at the Solana Frontier hackathon, DodoArc starts with a practical wedge: human-to-agent billing first, then developer infrastructure for agent-operated payments with app-level controls.
+## Problem
 
-## Milestone Status
+AI agents can now call paid tools, spend credits, and trigger real financial actions, but the billing stack around them is still incomplete.
 
-### Milestone 1: Checkout and Credits
+- Users pay in familiar local rails like UPI and cards.
+- Agents operate in API and crypto-native environments.
+- Billing systems handle checkout, but not controlled agent spend after payment.
+- Operators still lack a clear path from fiat payment to credits, agent execution, and settlement.
 
-Milestone 1 proved the core billing loop:
+That leaves a missing layer between human payment and autonomous agent action.
 
-- Plan discovery for an AI agent product.
-- Dodo Payments checkout creation.
-- Local mock checkout fallback for development.
-- Payment webhook handling.
-- Credit activation after successful payment.
-- Dashboard visibility for subscription and credit state.
-- Backend tests for credit and webhook behavior.
+## Solution
 
-### Milestone 2: Persistent Billing Dashboard
+DodoArc connects familiar fiat checkout on the front end with policy-controlled agent execution on the back end:
 
-Milestone 2 turned the MVP into a stronger product foundation:
+- Human users pay through Dodo Payments using familiar rails.
+- DodoArc activates credits and links the user to a developer app.
+- Agents consume those credits only if the app policy allows the run.
+- Every paid tool call can generate a verifiable USDC settlement receipt on Solana.
+- Operators and developers get a live dashboard, webhook visibility, traceability, and app-scoped controls.
 
-- SQLite-backed persistence for users, subscriptions, events, webhook logs, and credit state.
-- Dedicated landing page and authenticated-style dashboard surface.
-- Webhook idempotency to prevent duplicate processing.
-- Webhook processing logs for debugging and operational visibility.
-- Solana settlement readiness endpoints for future stablecoin flows.
-- Improved dashboard views for subscriptions, credits, events, webhooks, and settlement status.
-- Expanded tests around webhook behavior and persistent billing state.
+In short, DodoArc turns:
 
-### Milestone 3: Agent Runs and x402 Settlement Receipts
+- `Fiat in`
+- `Policy-controlled agent spend`
+- `Solana settlement receipts out`
 
-Milestone 3 connects the billing foundation to the agent economy:
+## What DodoArc Solves
 
-- Phantom wallet connect with demo wallet fallback for Solana devnet settlement routing.
-- Demo Trading Signal Agent exposed through `POST /api/agent/run`.
-- Credit deduction before each agent execution.
-- Three paid tool calls per run, represented as x402-style USDC settlement receipts.
-- Real Solana devnet transfer path when wallet credentials are configured.
-- Mock settlement receipts when devnet credentials are absent, keeping the demo runnable.
-- Persistent agent run history and settlement receipt storage in SQLite.
-- Dashboard Agents view for running the agent, reviewing receipts, and opening Solana explorer links.
-- Devnet setup helper for funding and checking the settlement wallet.
+- Lets non-crypto users pay for AI agent products with familiar local rails.
+- Gives developers a control plane for app-level budgets and spending rules.
+- Prevents unsafe agent runs before credits are consumed.
+- Bridges offchain billing with onchain-verifiable settlement receipts.
+- Makes the full payment-to-agent-to-settlement path observable for operators.
 
-### Milestone 4: Live Operator Dashboard
+## What DodoArc Provides
 
-Milestone 4 makes the demo and operator view judge-ready:
-
-- Dashboard metrics backed by real SQLite state instead of static display values.
-- Aggregated visibility for subscriptions, fiat revenue, credit usage, agent runs, and USDC settlement receipts.
-- Revenue chart and credit usage views designed around live subscription and usage data.
-- Real-time dashboard refresh path for webhook and agent-run updates.
-- One-click demo flow that connects payment simulation, credit activation, agent execution, and settlement visibility.
-- Flow visualization showing the complete DodoArc loop from user payment to Solana settlement.
-- Loading, error, and empty states for a more reliable live demo experience.
-- Dashboard test coverage around metrics, demo user setup, simulated payment, and credit usage updates.
-
-### Milestone 5: Demo Readiness and Submission QA
-
-Milestone 5 turns DodoArc into a repeatable hackathon demo:
-
-- Production smoke test covering health, landing page, dashboard, plans, developer registration, app creation, demo user setup, simulated payment, agent run, settlement log, metrics, and MCP discovery.
-- Environment validation script for checking Dodo, Solana, dashboard, and local demo configuration before recording or judging.
-- Submission-ready local flow: landing page to dashboard, full demo run, settlement receipts, and operator metrics.
-- `.env.example` updated with Dodo, Solana, database, dashboard, and smoke-test configuration.
-- Test suite expanded to cover dashboard metrics and developer platform behavior.
-
-### Milestone 6: Developer Platform
-
-Milestone 6 moves DodoArc from a single-app MVP toward a platform for external AI agent builders:
-
-- Multi-developer SQLite schema with developers, API keys, and developer apps.
-- API key authentication for protected agent and credit consumption endpoints.
-- Developer Portal in the dashboard for registration, API key generation, app creation, checkout preview, and embed code.
-- Embeddable checkout widget served at `/embed/dodoarc.js`.
-- Standalone app checkout pages at `/checkout/:appId`.
-- MCP server and discovery endpoint for agent-native access to credits, usage, agent runs, settlements, and dashboard metrics.
-- Dodo checkout verification script for testing live checkout creation when Dodo credentials and product IDs are configured.
-
-### Milestone 7: Programmable Spend Control
-
-Milestone 7 sharpens DodoArc into a multi-tenant control plane for agent spending:
-
-- Tenant-scoped subscriptions, events, agent runs, settlement receipts, and dashboard reads.
-- Per-app spend policies for daily caps, per-run caps, approval thresholds, and pause/resume controls.
-- Agent execution enforcement that blocks paused apps, cap violations, and approval-required runs before credits are consumed.
-- App user registration after Dodo webhook activation, linking paid users to developer apps.
-- Dashboard views for My Apps, Spend Policies, Live Trace, and MCP tool discovery.
-- Landing page copy reframed around the core primitive: fiat payment in, policy-controlled agent spend out, Solana settlement receipts on every tool call.
-- Tests covering default policies, policy updates, paused apps, resumed apps, daily caps, app users, and authenticated agent history.
-
-## Milestone 7 Demo Surface
-
-What Milestone 7 adds to the live MVP:
-
-- A multi-tenant operator dashboard where platform views stay global while developer app actions stay app-scoped.
-- A Developer Portal for app creation, API key generation, app checkout preview, and embeddable checkout setup.
-- Policy-controlled agent execution with clear blocked states for paused apps, daily cap hits, per-run cap hits, and approval-required runs.
-- Live Trace and webhook visibility so judges can follow the full path from fiat checkout to agent run and Solana settlement receipt.
-- MCP discovery for agent-native usage, letting external agent products integrate DodoArc as programmable billing infrastructure.
+- Dodo Payments checkout integration for human users.
+- Credit activation and subscription tracking after successful payment.
+- Multi-tenant developer apps with API keys and embeddable checkout.
+- Per-app spend policies for pause/resume, daily caps, per-run caps, and approval thresholds.
+- Agent execution with enforced credit deduction and policy checks.
+- x402-style Solana settlement receipts for paid tool calls.
+- MCP discovery for agent-native integration.
+- Live dashboard visibility across subscriptions, credits, webhooks, agent runs, and settlements.
 
 ## Architecture
 
