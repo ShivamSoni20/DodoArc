@@ -81,6 +81,163 @@ const API = {
   }),
 };
 
+const MOCK_FOUNDERSCOPE = {
+  subscriptions: [
+    {
+      id: 'sub_mock_001',
+      userId: 'user_mock_001',
+      planId: 'plan_pro',
+      status: 'active',
+      credits_total: 1000,
+      credits_used: 20,
+      credits_remaining: 980,
+      payment_method: 'UPI',
+      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      user: { email: 'iamgoat@gmail.com', name: 'Demo User' },
+      plan: { name: 'Pro', display_price: 'Rs499/mo' }
+    }
+  ],
+  webhooks: [
+    {
+      event_id: 'evt_mock_payment_001',
+      event_type: 'payment.succeeded',
+      status: 'processed',
+      action_taken: 'subscription_activated',
+      received_at: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
+      processed_at: new Date(Date.now() - 109 * 60 * 1000).toISOString(),
+      dodo: {
+        eventType: 'payment.succeeded',
+        customerEmail: 'iamgoat@gmail.com',
+        customerName: 'Demo User',
+        amountDisplay: 'INR 499.00',
+        paymentId: 'pay_mock_001',
+        occurredAt: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
+        isReal: false
+      }
+    },
+    {
+      event_id: 'evt_mock_subscription_001',
+      event_type: 'subscription.active',
+      status: 'processed',
+      action_taken: 'credits_granted',
+      received_at: new Date(Date.now() - 108 * 60 * 1000).toISOString(),
+      processed_at: new Date(Date.now() - 107 * 60 * 1000).toISOString(),
+      dodo: {
+        eventType: 'subscription.active',
+        customerEmail: 'iamgoat@gmail.com',
+        customerName: 'Demo User',
+        amountDisplay: 'INR 499.00',
+        paymentId: 'subpay_mock_001',
+        occurredAt: new Date(Date.now() - 108 * 60 * 1000).toISOString(),
+        isReal: false
+      }
+    }
+  ],
+  settlement: {
+    totalSettled: 0.0035,
+    receipts: [
+      {
+        agentRunId: 'wf_mock_001',
+        tool: 'market-data',
+        amountUsdc: 0.0014,
+        signature: '52VVxSRhY62TEMmock123456',
+        explorer: 'https://explorer.solana.com/tx/52VVxSRhY62TEMmock123456?cluster=devnet',
+        timestamp: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+        mock: true
+      },
+      {
+        agentRunId: 'wf_mock_001',
+        tool: 'sentiment-feed',
+        amountUsdc: 0.0009,
+        signature: '3GcrUSYG3q4hL1mock123456',
+        explorer: 'https://explorer.solana.com/tx/3GcrUSYG3q4hL1mock123456?cluster=devnet',
+        timestamp: new Date(Date.now() - 17 * 60 * 1000).toISOString(),
+        mock: true
+      },
+      {
+        agentRunId: 'wf_mock_001',
+        tool: 'signal-engine',
+        amountUsdc: 0.0012,
+        signature: 'BEHSE4R8RM842Smock123456',
+        explorer: 'https://explorer.solana.com/tx/BEHSE4R8RM842Smock123456?cluster=devnet',
+        timestamp: new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+        mock: true
+      }
+    ]
+  },
+  runs: [
+    {
+      run_id: 'wf_mock_001',
+      user_id: 'user_mock_001',
+      app_id: 'app_mock_demo',
+      agent_name: 'Backend Spend Flow',
+      credits_used: 10,
+      status: 'completed',
+      created_at: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+      completed_at: new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+      result: {
+        signal: 'BUY',
+        confidence: 78,
+        sentiment: 'bullish'
+      }
+    }
+  ],
+  metrics: {
+    mrr: 499,
+    mrrFormatted: 'INR 499',
+    activeSubscribers: 1,
+    totalSubscribers: 1,
+    totalCreditsUsed: 20,
+    totalCreditsGranted: 1000,
+    totalUsdcSettled: 0.0035,
+    completedAgentRuns: 1,
+    monthlyRevenue: [
+      { month: 'Dec', inr: 0, usdc: 0 },
+      { month: 'Jan', inr: 0, usdc: 0 },
+      { month: 'Feb', inr: 0, usdc: 0 },
+      { month: 'Mar', inr: 0, usdc: 0 },
+      { month: 'Apr', inr: 0, usdc: 0 },
+      { month: 'May', inr: 499, usdc: 0.0035 }
+    ],
+    timestamp: new Date().toISOString()
+  }
+};
+
+function withFounderMock(data) {
+  const subscriptions = data.subscriptions?.length ? data.subscriptions : MOCK_FOUNDERSCOPE.subscriptions;
+  const log = data.log?.length ? data.log : MOCK_FOUNDERSCOPE.webhooks;
+  const receipts = data.receipts?.length ? data.receipts : MOCK_FOUNDERSCOPE.settlement.receipts;
+  const runs = data.runs?.length ? data.runs : MOCK_FOUNDERSCOPE.runs;
+  const metrics = (data.metrics && (
+    Number(data.metrics.totalSubscribers || 0) > 0 ||
+    Number(data.metrics.completedAgentRuns || 0) > 0 ||
+    Number(data.metrics.totalUsdcSettled || 0) > 0 ||
+    Number(data.metrics.mrr || 0) > 0
+  )) ? data.metrics : MOCK_FOUNDERSCOPE.metrics;
+
+  return {
+    usingMock: !data.subscriptions?.length && !data.log?.length && !data.receipts?.length && !data.runs?.length,
+    subscriptions,
+    log,
+    receipts,
+    runs,
+    metrics,
+    settlement: {
+      receipts,
+      totalSettled: data.totalSettled || MOCK_FOUNDERSCOPE.settlement.totalSettled
+    }
+  };
+}
+
+function mockBanner(usingMock) {
+  if (!usingMock) return '';
+  return `<div class="dash-widget" style="margin-bottom:1rem;background:var(--gold-mist);border-color:rgba(184,139,40,0.25);">
+    <div style="font-size:0.78rem;color:var(--ink);line-height:1.6;">
+      Showing seeded founder demo data because no app-scoped live subscription has been linked yet.
+    </div>
+  </div>`;
+}
+
 function getDeveloperApiKey() {
   return sessionStorage.getItem('dodoarc_api_key') || '';
 }
@@ -353,25 +510,33 @@ const views = {
       API.platformWebhookLog(),
       API.platformSettlement()
     ]);
+    const scoped = withFounderMock({
+      metrics,
+      subscriptions,
+      log,
+      receipts: settlement.receipts || [],
+      totalSettled: settlement.totalSettled || 0
+    });
 
     return `
       <div class="dash-page-title">Overview</div>
       <div class="dash-page-sub" style="margin-bottom:1.25rem;">
-        <span class="live-dot"></span> Last updated ${new Date(metrics.timestamp).toLocaleTimeString('en-IN')}
+        <span class="live-dot"></span> Last updated ${new Date(scoped.metrics.timestamp).toLocaleTimeString('en-IN')}
       </div>
+      ${mockBanner(scoped.usingMock)}
       <div class="metrics-row">
-        ${metricCard('MRR (Fiat)', metrics.mrrFormatted, 'active paid subscriptions', 'up')}
-        ${metricCard('Active Subscribers', metrics.activeSubscribers, `${metrics.totalSubscribers} total`, 'up')}
-        ${metricCard('Credits Consumed', Number(metrics.totalCreditsUsed || 0).toLocaleString('en-IN'), `${metrics.completedAgentRuns} backend runs`, 'flat')}
-        ${metricCard('USDC Settled', `$${Number(metrics.totalUsdcSettled || 0).toFixed(4)}`, 'x402 receipts', 'up')}
+        ${metricCard('MRR (Fiat)', scoped.metrics.mrrFormatted, 'active paid subscriptions', 'up')}
+        ${metricCard('Active Subscribers', scoped.metrics.activeSubscribers, `${scoped.metrics.totalSubscribers} total`, 'up')}
+        ${metricCard('Credits Consumed', Number(scoped.metrics.totalCreditsUsed || 0).toLocaleString('en-IN'), `${scoped.metrics.completedAgentRuns} backend runs`, 'flat')}
+        ${metricCard('USDC Settled', `$${Number(scoped.metrics.totalUsdcSettled || 0).toFixed(4)}`, 'x402 receipts', 'up')}
       </div>
       <div class="dash-grid2" style="margin-top:1rem;">
-        ${revenueChartWidget(metrics.monthlyRevenue || [])}
-        ${agentFeedWidget(log)}
-        ${creditUsageWidget(subscriptions)}
-        ${settlementWidgetLive(settlement.receipts || [], settlement.totalSettled || 0)}
+        ${revenueChartWidget(scoped.metrics.monthlyRevenue || [])}
+        ${agentFeedWidget(scoped.log)}
+        ${creditUsageWidget(scoped.subscriptions)}
+        ${settlementWidgetLive(scoped.settlement.receipts || [], scoped.settlement.totalSettled || 0)}
       </div>
-      ${subscriberTableWidget(subscriptions)}`;
+      ${subscriberTableWidget(scoped.subscriptions)}`;
   },
 
   apps: async () => {
@@ -426,20 +591,23 @@ const views = {
 
   subscribers: async () => {
     const { subscriptions = [] } = await API.platformSubscriptions();
-    return `<div class="dash-page-title">Subscribers</div><div class="dash-page-sub" style="margin-bottom:1.25rem;">${subscriptions.length} total subscribers</div><div class="dash-widget">${subscriberTableHTML(subscriptions)}</div>`;
+    const scoped = withFounderMock({ subscriptions });
+    return `<div class="dash-page-title">Subscribers</div><div class="dash-page-sub" style="margin-bottom:1.25rem;">${scoped.subscriptions.length} total subscribers</div>${mockBanner(scoped.usingMock)}<div class="dash-widget">${subscriberTableHTML(scoped.subscriptions)}</div>`;
   },
 
   webhooks: async () => {
     const { log = [] } = await API.platformWebhookLog();
+    const scoped = withFounderMock({ log });
     return `
       <div class="dash-page-title">Webhook Log</div>
       <div class="dash-page-sub" style="margin-bottom:1.25rem;">All Dodo webhook events received directly from the webhook endpoint, with idempotency status and payload details.</div>
+      ${mockBanner(scoped.usingMock)}
       <div class="dash-widget">
-        <div class="widget-title">Received Events <span class="widget-badge wb-live">${log.length} events</span></div>
+        <div class="widget-title">Received Events <span class="widget-badge wb-live">${scoped.log.length} events</span></div>
         <table class="webhook-table">
           <thead><tr><th>Event ID</th><th>Type</th><th>Customer</th><th>Amount</th><th>Received</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>
-            ${log.length ? log.map(webhookRow).join('') : '<tr><td colspan="7" style="text-align:center;padding:1rem;color:var(--ink-soft);">No webhooks received yet.</td></tr>'}
+            ${scoped.log.length ? scoped.log.map(webhookRow).join('') : '<tr><td colspan="7" style="text-align:center;padding:1rem;color:var(--ink-soft);">No webhooks received yet.</td></tr>'}
           </tbody>
         </table>
       </div>`;
@@ -447,11 +615,17 @@ const views = {
 
   agents: async () => {
     const [{ runs = [] }, settlement] = await Promise.all([API.agentRuns(), API.platformSettlement()]);
-    const receipts = settlement.receipts || [];
-    const totalSettled = settlement.totalSettled || 0;
+    const scoped = withFounderMock({
+      runs,
+      receipts: settlement.receipts || [],
+      totalSettled: settlement.totalSettled || 0
+    });
+    const receipts = scoped.settlement.receipts || [];
+    const totalSettled = scoped.settlement.totalSettled || 0;
     return `
       <div class="dash-page-title">Backend Runs</div>
       <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each backend run consumes 10 credits, checks spend policy, and creates x402-style USDC settlement receipts.</div>
+      ${mockBanner(scoped.usingMock)}
       <div class="dash-widget" style="margin-bottom:1rem;background:var(--olive-mist);border-color:rgba(107,124,92,0.3);">
         <div class="widget-title">Run Demo Backend Flow</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -466,39 +640,43 @@ const views = {
       </div>
       <div class="dash-widget">
         <div class="widget-title">Run History</div>
-        ${runs.length ? `<table class="sub-table"><thead><tr><th>Run ID</th><th>Agent</th><th>Credits</th><th>Signal</th><th>Status</th><th>Time</th></tr></thead><tbody>${runs.map((run) => `<tr><td style="font-family:'DM Mono',monospace;font-size:0.62rem;">${escapeHtml(run.run_id)}</td><td>${escapeHtml(run.agent_name)}</td><td>-${run.credits_used}</td><td style="font-weight:600;">${escapeHtml(run.result?.signal || '-')}</td><td><span class="status-pill ${statusClass(run.status)}">${escapeHtml(run.status)}</span></td><td>${formatTime(run.created_at)}</td></tr>`).join('')}</tbody></table>` : emptyState('No backend runs yet.')}
+        ${scoped.runs.length ? `<table class="sub-table"><thead><tr><th>Run ID</th><th>Agent</th><th>Credits</th><th>Signal</th><th>Status</th><th>Time</th></tr></thead><tbody>${scoped.runs.map((run) => `<tr><td style="font-family:'DM Mono',monospace;font-size:0.62rem;">${escapeHtml(run.run_id)}</td><td>${escapeHtml(run.agent_name)}</td><td>-${run.credits_used}</td><td style="font-weight:600;">${escapeHtml(run.result?.signal || '-')}</td><td><span class="status-pill ${statusClass(run.status)}">${escapeHtml(run.status)}</span></td><td>${formatTime(run.created_at)}</td></tr>`).join('')}</tbody></table>` : emptyState('No backend runs yet.')}
       </div>`;
   },
 
   billing: async () => {
     const metrics = await API.platformMetrics();
-    return `<div class="dash-page-title">Billing</div><div class="dash-page-sub">Revenue from founder-owned Dodo subscriptions and credit top-ups.</div>${revenueChartWidget(metrics.monthlyRevenue || [])}`;
+    const scoped = withFounderMock({ metrics });
+    return `<div class="dash-page-title">Billing</div><div class="dash-page-sub">Revenue from founder-owned Dodo subscriptions and credit top-ups.</div>${mockBanner(scoped.usingMock)}${revenueChartWidget(scoped.metrics.monthlyRevenue || [])}`;
   },
   fiat: async () => views.billing(),
   flow: async () => {
     const [metrics, settlement] = await Promise.all([API.platformMetrics(), API.platformSettlement()]);
-    const lastSettlement = (settlement.receipts || [])[0];
+    const scoped = withFounderMock({ metrics, receipts: settlement.receipts || [], totalSettled: settlement.totalSettled || 0 });
+    const lastSettlement = (scoped.settlement.receipts || [])[0];
     return `
       <div class="dash-page-title">DodoArc Flow</div>
       <div class="dash-page-sub" style="margin-bottom:1.25rem;">The complete loop from Dodo checkout to credits, backend approval, and Solana settlement proof.</div>
+      ${mockBanner(scoped.usingMock)}
       <div class="dash-widget">
         <div style="display:flex;gap:8px;align-items:stretch;overflow-x:auto;padding:0.5rem 0;">
-          ${flowNode('User Pays', 'UPI/Card via Dodo', metrics.mrrFormatted)}
+          ${flowNode('User Pays', 'UPI/Card via Dodo', scoped.metrics.mrrFormatted)}
           ${flowArrow('checkout')}
-          ${flowNode('Webhook', 'payment.succeeded', `${metrics.totalSubscribers} users`)}
+          ${flowNode('Webhook', 'payment.succeeded', `${scoped.metrics.totalSubscribers} users`)}
           ${flowArrow('activate')}
-          ${flowNode('Credits', 'allocated per plan', `${Number(metrics.totalCreditsGranted || 0).toLocaleString('en-IN')} total`)}
+          ${flowNode('Credits', 'allocated per plan', `${Number(scoped.metrics.totalCreditsGranted || 0).toLocaleString('en-IN')} total`)}
           ${flowArrow('consume')}
-          ${flowNode('Backend Run', 'paid tools', `${metrics.completedAgentRuns} runs`)}
+          ${flowNode('Backend Run', 'paid tools', `${scoped.metrics.completedAgentRuns} runs`)}
           ${flowArrow('x402')}
-          ${flowNode('USDC Settled', 'Solana devnet', `$${Number(metrics.totalUsdcSettled || 0).toFixed(4)}`)}
+          ${flowNode('USDC Settled', 'Solana devnet', `$${Number(scoped.metrics.totalUsdcSettled || 0).toFixed(4)}`)}
         </div>
         ${lastSettlement ? `<div style="margin-top:1rem;background:var(--cream);border-radius:var(--r-md);padding:0.8rem;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:0.75rem;"><span>Last settlement</span><a href="${lastSettlement.explorer}" target="_blank" style="color:var(--lavender-dark);font-family:'DM Mono',monospace;">${escapeHtml(String(lastSettlement.signature || '').slice(0, 16))}...</a><strong>${Number(lastSettlement.amountUsdc || 0).toFixed(4)} USDC</strong></div>` : emptyState('No settlements yet. Run the full demo flow to populate this screen.')}
       </div>`;
   },
   settlement: async () => {
     const settlement = await API.platformSettlement();
-    return `<div class="dash-page-title">USDC Settlement</div><div class="dash-page-sub">Solana devnet settlement readiness.</div>${settlementWidgetLive(settlement.receipts || [], settlement.totalSettled || 0)}`;
+    const scoped = withFounderMock({ receipts: settlement.receipts || [], totalSettled: settlement.totalSettled || 0 });
+    return `<div class="dash-page-title">USDC Settlement</div><div class="dash-page-sub">Solana devnet settlement readiness.</div>${mockBanner(scoped.usingMock)}${settlementWidgetLive(scoped.settlement.receipts || [], scoped.settlement.totalSettled || 0)}`;
   },
   policies: async () => {
     if (!getDeveloperApiKey()) {
@@ -552,14 +730,21 @@ const views = {
       API.platformSettlement(),
       API.platformWebhookLog()
     ]);
+    const scoped = withFounderMock({
+      runs,
+      log,
+      receipts: settlement.receipts || [],
+      totalSettled: settlement.totalSettled || 0
+    });
 
-    const latestRun = runs[0];
-    const runReceipts = latestRun ? (settlement.receipts || []).filter((receipt) => receipt.agentRunId === latestRun.run_id) : [];
-    const latestWebhook = log[0];
+    const latestRun = scoped.runs[0];
+    const runReceipts = latestRun ? (scoped.settlement.receipts || []).filter((receipt) => receipt.agentRunId === latestRun.run_id) : [];
+    const latestWebhook = scoped.log[0];
 
     return `
       <div class="dash-page-title">Live Trace</div>
       <div class="dash-page-sub" style="margin-bottom:1.25rem;">Every event in the DodoArc pipeline - from checkout to backend spend and settlement - traced in one view.</div>
+      ${mockBanner(scoped.usingMock)}
       <div style="display:flex;flex-direction:column;gap:0.75rem;">
         ${traceEvent('Checkout', 'Dodo payment session created', latestWebhook?.event_id || null, latestWebhook?.received_at, Boolean(latestWebhook))}
         ${traceEvent('Webhook', 'payment.succeeded received and idempotency checked', latestWebhook?.event_id || null, latestWebhook?.processed_at, latestWebhook?.status === 'processed')}
@@ -598,7 +783,8 @@ const views = {
   },
   credits: async () => {
     const { subscriptions = [] } = await API.platformSubscriptions();
-    return `<div class="dash-page-title">Credits</div><div class="dash-page-sub">Credit consumption by subscription.</div>${creditUsageWidget(subscriptions)}`;
+    const scoped = withFounderMock({ subscriptions });
+    return `<div class="dash-page-title">Credits</div><div class="dash-page-sub">Credit consumption by subscription.</div>${mockBanner(scoped.usingMock)}${creditUsageWidget(scoped.subscriptions)}`;
   },
   developer: async () => developerView(),
   apikeys: async () => developerView()
