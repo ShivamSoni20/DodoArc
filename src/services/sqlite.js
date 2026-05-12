@@ -2,12 +2,25 @@ const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const dataDir = path.join(__dirname, '..', '..', 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+function ensureDirSafe(target) {
+  try {
+    if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-const dbPath = process.env.DB_PATH || path.join(dataDir, 'dodoarc.db');
+const localDataDir = path.join(__dirname, '..', '..', 'data');
+const runtimeDataDir = process.env.VERCEL
+  ? path.join('/tmp', 'dodoarc')
+  : localDataDir;
+
+ensureDirSafe(runtimeDataDir);
+
+const dbPath = process.env.DB_PATH || path.join(runtimeDataDir, 'dodoarc.db');
 const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+ensureDirSafe(dbDir);
 
 function connectDatabase(targetPath) {
   const database = new Database(targetPath);
@@ -214,7 +227,8 @@ try {
   sqlite.exec('BEGIN IMMEDIATE; ROLLBACK;');
 } catch {
   try {
-    const runtimePath = path.join(dataDir, 'dodoarc-runtime.db');
+    const runtimeRoot = ensureDirSafe('/tmp') ? '/tmp' : runtimeDataDir;
+    const runtimePath = path.join(runtimeRoot, 'dodoarc-runtime.db');
     sqlite = connectDatabase(runtimePath);
     initializeSchema(sqlite);
   } catch {
