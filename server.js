@@ -94,12 +94,7 @@ app.get('/checkout/mock-success', (req, res) => {
 });
 
 app.get('/payment-success', (req, res) => {
-  const params = new URLSearchParams();
-  params.set('role', 'user');
-  params.set('mode', 'login');
-  if (req.query.email) params.set('email', String(req.query.email));
-  if (req.query.plan) params.set('plan', String(req.query.plan));
-  res.redirect(`/login?${params.toString()}`);
+  res.redirect('/dashboard');
 });
 
 app.get('/checkout/:appId', (req, res) => {
@@ -142,13 +137,12 @@ app.get('/checkout/:appId', (req, res) => {
 });
 
 app.get('/dashboard', (req, res) => {
-  if (req.account?.role === 'user') return res.redirect('/app');
   if (req.account?.role !== 'founder') return res.redirect('/login?role=founder');
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-app.get('/app', requireRolePage('user'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+app.get('/app', (req, res) => {
+  res.redirect('/');
 });
 
 app.get('/login', (req, res) => {

@@ -1,7 +1,7 @@
 (function () {
   const state = {
     mode: 'login',
-    role: 'user'
+    role: 'founder'
   };
 
   const form = document.getElementById('auth-form');
@@ -22,15 +22,13 @@
 
   function applyPrefill() {
     const search = params();
-    const role = search.get('role');
     const mode = search.get('mode');
     const email = search.get('email');
-    if (role === 'founder' || role === 'user') state.role = role;
     if (mode === 'signup' || mode === 'login') state.mode = mode;
     if (email) emailInput.value = email;
     if (search.get('plan')) {
       banner.style.display = 'block';
-      banner.textContent = 'Payment completed. Login or signup with the same email to load your plan and credits.';
+      banner.textContent = 'Payment completed. Log in to the founder dashboard to inspect the subscriber, credits, and webhook state.';
     }
   }
 
@@ -38,22 +36,14 @@
     document.querySelectorAll('#mode-toggle button').forEach((button) => {
       button.classList.toggle('active', button.dataset.mode === state.mode);
     });
-    document.querySelectorAll('#role-toggle button').forEach((button) => {
-      button.classList.toggle('active', button.dataset.role === state.role);
-    });
-
     const isSignup = state.mode === 'signup';
     nameField.style.display = isSignup ? 'block' : 'none';
     nameInput.required = isSignup;
 
     title.textContent = isSignup ? 'Create account' : 'Login';
-    submit.textContent = `${isSignup ? 'Create' : 'Login as'} ${state.role}`;
-    roleHint.textContent = state.role === 'founder'
-      ? 'Founder access opens the operator dashboard and app integration controls.'
-      : 'User access opens your personal plan and credits dashboard.';
-    copy.textContent = state.role === 'founder'
-      ? 'Founders keep their own app and use DodoArc for credits, policies, and settlement traces.'
-      : 'Users can sign in to see the plan, credits, and access activated for their email.';
+    submit.textContent = `${isSignup ? 'Create' : 'Login as'} founder`;
+    roleHint.textContent = 'Founder access opens the operator dashboard and app integration controls.';
+    copy.textContent = 'Founders keep their own app and use DodoArc for credits, policies, subscribers, and settlement traces.';
   }
 
   async function submitAuth(event) {
@@ -65,7 +55,7 @@
 
     try {
       const payload = {
-        role: state.role,
+        role: 'founder',
         email: emailInput.value.trim(),
         password: passwordInput.value
       };
@@ -88,7 +78,7 @@
       message.className = 'message ok';
       message.textContent = 'Success. Redirecting...';
       const next = params().get('next');
-      window.location.href = next || data.redirectTo || (state.role === 'founder' ? '/dashboard' : '/app');
+      window.location.href = next || data.redirectTo || '/dashboard';
     } catch (error) {
       message.className = 'message error';
       message.textContent = error.message;
@@ -101,13 +91,6 @@
   document.querySelectorAll('#mode-toggle button').forEach((button) => {
     button.addEventListener('click', () => {
       state.mode = button.dataset.mode;
-      render();
-    });
-  });
-
-  document.querySelectorAll('#role-toggle button').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.role = button.dataset.role;
       render();
     });
   });

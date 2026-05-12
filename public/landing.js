@@ -42,12 +42,7 @@ document.querySelectorAll('.plan-btn[data-plan-id]').forEach((button) => {
       if (data.payment_url) {
         window.location.href = data.payment_url;
       } else if (data.success && data.type === 'free') {
-        const next = new URLSearchParams({
-          role: 'user',
-          mode: 'signup',
-          email
-        });
-        window.location.href = `/login?${next.toString()}`;
+        window.location.href = '/dashboard';
       }
     } catch (error) {
       window.alert(error.message || 'Network error. Is the server running?');

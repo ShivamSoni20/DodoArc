@@ -60,15 +60,11 @@
   <main>
     <div class="eyebrow">DodoArc access</div>
     <h1 id="auth-title">Login</h1>
-    <p id="auth-copy">Choose whether you are a founder managing app integrations or a user accessing a paid AI product.</p>
+    <p id="auth-copy">Founder login for app setup, billing connection, subscribers, policies, and settlement visibility.</p>
     <div id="login-banner" class="banner"></div>
     <div class="segment" id="mode-toggle">
       <button type="button" data-mode="login" class="active">Login</button>
       <button type="button" data-mode="signup">Signup</button>
-    </div>
-    <div class="segment" id="role-toggle">
-      <button type="button" data-role="user" class="active">User</button>
-      <button type="button" data-role="founder">Founder</button>
     </div>
     <form id="auth-form">
       <div id="name-field" style="display:none;">
@@ -79,8 +75,8 @@
       <input id="email" name="email" type="email" placeholder="you@example.com" required>
       <label for="password">Password</label>
       <input id="password" name="password" type="password" placeholder="Minimum 8 characters" required>
-      <div class="hint" id="role-hint">User login opens your personal access dashboard.</div>
-      <button class="cta" id="submit-btn" type="submit">Login as user</button>
+      <div class="hint" id="role-hint">This login opens the founder dashboard.</div>
+      <button class="cta" id="submit-btn" type="submit">Login as founder</button>
       <div id="auth-message" class="message"></div>
     </form>
     <a class="back" href="/">Back to landing</a>

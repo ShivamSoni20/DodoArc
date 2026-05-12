@@ -10,11 +10,11 @@ function developerHeaders(headers = {}) {
 }
 
 const API = {
-  platformSubscriptions: () => getJson('/api/subscriptions'),
-  platformEvents: () => getJson('/api/subscriptions/events'),
-  platformWebhookLog: () => getJson('/api/webhooks/log'),
-  platformSettlement: () => getJson('/api/solana/settlement-log'),
-  platformMetrics: () => getJson('/api/dashboard/metrics'),
+  platformSubscriptions: () => getJson('/api/subscriptions', { headers: developerHeaders() }),
+  platformEvents: () => getJson('/api/subscriptions/events', { headers: developerHeaders() }),
+  platformWebhookLog: () => getJson('/api/webhooks/log', { headers: developerHeaders() }),
+  platformSettlement: () => getJson('/api/solana/settlement-log', { headers: developerHeaders() }),
+  platformMetrics: () => getJson('/api/dashboard/metrics', { headers: developerHeaders() }),
   credits: (id, appId = null) => getJson(`/api/credits/${id}${appId ? `?appId=${encodeURIComponent(appId)}` : ''}`, {
     headers: developerHeaders()
   }),
