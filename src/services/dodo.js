@@ -12,19 +12,26 @@ function hasLiveDodoConfig(productId) {
   return Boolean(config.DODO_PAYMENTS_API_KEY && productId && DodoPayments);
 }
 
-function getClient() {
+function hasMerchantConfig({ apiKey, productId }) {
+  return Boolean(apiKey && productId && DodoPayments);
+}
+
+function getClient(apiKey = config.DODO_PAYMENTS_API_KEY) {
   if (!DodoPayments) {
     throw new Error('dodopayments SDK is not installed');
   }
 
   return new DodoPayments({
-    bearerToken: config.DODO_PAYMENTS_API_KEY,
+    bearerToken: apiKey,
     environment: config.DODO_PAYMENTS_ENVIRONMENT
   });
 }
 
-async function createCheckoutSession({ plan, user, metadata }) {
-  if (!hasLiveDodoConfig(plan.dodo_product_id)) {
+async function createCheckoutSession({ plan, user, metadata, merchant = null }) {
+  const apiKey = merchant?.apiKey || config.DODO_PAYMENTS_API_KEY;
+  const productId = merchant?.productId || plan.dodo_product_id;
+
+  if (!hasMerchantConfig({ apiKey, productId })) {
     return {
       checkout_url:
         `${config.BASE_URL}/checkout/mock-success?planId=${encodeURIComponent(plan.id)}` +
@@ -34,15 +41,17 @@ async function createCheckoutSession({ plan, user, metadata }) {
     };
   }
 
-  const client = getClient();
+  const client = getClient(apiKey);
   const session = await client.checkoutSessions.create({
-    product_cart: [{ product_id: plan.dodo_product_id, quantity: 1 }],
+    product_cart: [{ product_id: productId, quantity: 1 }],
     customer: {
       email: user.email,
       name: user.name
     },
     metadata,
-    return_url: `${config.BASE_URL}/payment-success?plan=${plan.id}`
+    return_url:
+      `${config.BASE_URL}/payment-success?plan=${encodeURIComponent(plan.id)}` +
+      `&email=${encodeURIComponent(user.email)}`
   });
 
   return {
@@ -52,29 +61,33 @@ async function createCheckoutSession({ plan, user, metadata }) {
   };
 }
 
-function verifyWebhookSignature(rawBody, headers) {
-  const secret = config.DODO_PAYMENTS_WEBHOOK_SECRET;
+function verifyWebhookSignature(rawBody, headers, secrets = []) {
+  const allSecrets = [config.DODO_PAYMENTS_WEBHOOK_SECRET, ...secrets].map((value) => String(value || '').trim()).filter(Boolean);
 
-  if (!secret) {
+  if (!allSecrets.length) {
     return config.ALLOW_UNSIGNED_TEST_WEBHOOKS;
   }
 
-  try {
-    const webhook = new Webhook(secret);
-    webhook.verify(rawBody, {
-      'webhook-id': headers['webhook-id'],
-      'webhook-signature': headers['webhook-signature'],
-      'webhook-timestamp': headers['webhook-timestamp']
-    });
-    return true;
-  } catch (error) {
-    console.warn('Dodo webhook verification failed:', error.message);
-    return false;
+  for (const secret of allSecrets) {
+    try {
+      const webhook = new Webhook(secret);
+      webhook.verify(rawBody, {
+        'webhook-id': headers['webhook-id'],
+        'webhook-signature': headers['webhook-signature'],
+        'webhook-timestamp': headers['webhook-timestamp']
+      });
+      return true;
+    } catch (error) {
+      console.warn('Dodo webhook verification failed:', error.message);
+    }
   }
+
+  return false;
 }
 
 module.exports = {
   createCheckoutSession,
   verifyWebhookSignature,
-  hasLiveDodoConfig
+  hasLiveDodoConfig,
+  hasMerchantConfig
 };

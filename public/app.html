@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DodoArc User Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream:#f7f3ec; --white:#fdfaf5; --ink:#2a2820; --ink-soft:#7a7568;
+      --olive:#6b7c5c; --line:#e8e0d0; --lav:#ede8f4;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--cream); color:var(--ink); font-family:'Instrument Sans',sans-serif; }
+    .shell { min-height:100vh; display:flex; flex-direction:column; }
+    header {
+      display:flex; align-items:center; justify-content:space-between; padding:18px 28px;
+      background:rgba(253,250,245,.9); backdrop-filter:blur(12px); border-bottom:1px solid var(--line);
+      position:sticky; top:0;
+    }
+    .brand { font-family:'Cormorant Garamond',serif; font-size:28px; text-decoration:none; color:var(--ink); }
+    .actions { display:flex; gap:10px; align-items:center; }
+    .chip { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--olive); }
+    button, .link-btn {
+      border:0; border-radius:999px; padding:10px 16px; background:var(--ink); color:var(--white);
+      font:inherit; font-weight:600; cursor:pointer; text-decoration:none;
+    }
+    main { width:min(1040px,calc(100% - 32px)); margin:28px auto 48px; }
+    .hero {
+      background:var(--white); border:1px solid var(--line); border-radius:24px; padding:24px;
+      box-shadow:0 18px 50px rgba(42,40,32,.08); margin-bottom:18px;
+    }
+    h1 { margin:0 0 8px; font-family:'Cormorant Garamond',serif; font-size:46px; line-height:1; }
+    p { margin:0; color:var(--ink-soft); line-height:1.6; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:18px; }
+    .card {
+      background:var(--white); border:1px solid var(--line); border-radius:18px; padding:18px;
+    }
+    .label { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px; }
+    .value { font-family:'Cormorant Garamond',serif; font-size:34px; line-height:1; }
+    .sub { margin-top:6px; font-size:13px; color:var(--olive); }
+    table { width:100%; border-collapse:collapse; }
+    th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); padding:0 0 10px; }
+    td { padding:12px 0; border-top:1px solid rgba(42,40,32,.06); font-size:14px; color:var(--ink); }
+    .empty { font-size:14px; color:var(--ink-soft); }
+    @media (max-width: 820px) {
+      .grid { grid-template-columns:1fr; }
+      header { padding:16px 18px; }
+      main { width:calc(100% - 20px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="brand" href="/">DodoArc</a>
+      <div class="actions">
+        <span id="user-role" class="chip">User access</span>
+        <a class="link-btn" href="/">Landing</a>
+        <button id="logout-btn" type="button">Logout</button>
+      </div>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="chip">Personal access</div>
+        <h1 id="hero-title">Loading your access...</h1>
+        <p id="hero-copy">We are fetching the subscriptions and credits linked to your email.</p>
+      </section>
+      <section class="grid">
+        <div class="card">
+          <div class="label">Active plans</div>
+          <div class="value" id="plan-count">0</div>
+          <div class="sub" id="plan-summary">No active plan loaded yet.</div>
+        </div>
+        <div class="card">
+          <div class="label">Credits remaining</div>
+          <div class="value" id="credits-remaining">0</div>
+          <div class="sub">Across all subscriptions linked to your login.</div>
+        </div>
+        <div class="card">
+          <div class="label">Credits used</div>
+          <div class="value" id="credits-used">0</div>
+          <div class="sub">This reflects backend runs already charged to your access.</div>
+        </div>
+      </section>
+      <section class="card" style="margin-top:18px;">
+        <div class="label">Subscriptions</div>
+        <div id="subscriptions-table"></div>
+      </section>
+    </main>
+  </div>
+  <script src="/user-dashboard.js"></script>
+</body>
+</html>

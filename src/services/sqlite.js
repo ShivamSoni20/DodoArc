@@ -57,6 +57,31 @@ function initializeSchema(sqlite) {
     FOREIGN KEY (developer_id) REFERENCES developers(id)
   );
 
+  CREATE TABLE IF NOT EXISTS auth_accounts (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    name TEXT,
+    role TEXT NOT NULL,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    user_id TEXT,
+    developer_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(email, role),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (developer_id) REFERENCES developers(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY,
+    token_hash TEXT UNIQUE NOT NULL,
+    account_id TEXT NOT NULL,
+    api_key TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (account_id) REFERENCES auth_accounts(id)
+  );
+
   CREATE TABLE IF NOT EXISTS developer_apps (
     id TEXT PRIMARY KEY,
     developer_id TEXT NOT NULL,
@@ -64,6 +89,10 @@ function initializeSchema(sqlite) {
     description TEXT,
     plan_id TEXT DEFAULT 'plan_pro',
     credits_per_run INTEGER DEFAULT 10,
+    dodo_api_key TEXT,
+    dodo_product_id TEXT,
+    dodo_webhook_secret TEXT,
+    billing_connected INTEGER DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (developer_id) REFERENCES developers(id)
   );
@@ -160,7 +189,11 @@ function initializeSchema(sqlite) {
     'ALTER TABLE settlement_receipts ADD COLUMN developer_id TEXT',
     'ALTER TABLE settlement_receipts ADD COLUMN app_id TEXT',
     'ALTER TABLE events ADD COLUMN developer_id TEXT',
-    'ALTER TABLE events ADD COLUMN app_id TEXT'
+    'ALTER TABLE events ADD COLUMN app_id TEXT',
+    'ALTER TABLE developer_apps ADD COLUMN dodo_api_key TEXT',
+    'ALTER TABLE developer_apps ADD COLUMN dodo_product_id TEXT',
+    'ALTER TABLE developer_apps ADD COLUMN dodo_webhook_secret TEXT',
+    'ALTER TABLE developer_apps ADD COLUMN billing_connected INTEGER DEFAULT 0'
   ];
 
   for (const migration of migrations) {

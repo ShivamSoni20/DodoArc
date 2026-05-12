@@ -76,6 +76,52 @@ test('payment.failed pauses an existing subscription', async () => {
   expect(subscription.status).toBe('paused');
 });
 
+test('refund webhook freezes an existing subscription', async () => {
+  const email = 'refund@example.com';
+  await request(app)
+    .post('/api/webhook/dodo')
+    .set('webhook-id', 'evt_refund_activate')
+    .send(paymentSucceeded('evt_refund_activate', email))
+    .expect(200);
+
+  await request(app)
+    .post('/api/webhook/dodo')
+    .set('webhook-id', 'evt_refund_freeze')
+    .send({
+      id: 'evt_refund_freeze',
+      type: 'payment.refunded',
+      data: { payment_id: 'pay_refund', customer: { email }, metadata: { email } }
+    })
+    .expect(200);
+
+  const user = db.getOrCreateUser(email, 'Refund User');
+  const subscription = db.getSubscriptionByUser(user.id);
+  expect(subscription.status).toBe('paused');
+});
+
+test('dispute webhook freezes an existing subscription', async () => {
+  const email = 'dispute@example.com';
+  await request(app)
+    .post('/api/webhook/dodo')
+    .set('webhook-id', 'evt_dispute_activate')
+    .send(paymentSucceeded('evt_dispute_activate', email))
+    .expect(200);
+
+  await request(app)
+    .post('/api/webhook/dodo')
+    .set('webhook-id', 'evt_dispute_freeze')
+    .send({
+      id: 'evt_dispute_freeze',
+      type: 'dispute.opened',
+      data: { id: 'dispute_001', customer: { email }, metadata: { email } }
+    })
+    .expect(200);
+
+  const user = db.getOrCreateUser(email, 'Dispute User');
+  const subscription = db.getSubscriptionByUser(user.id);
+  expect(subscription.status).toBe('paused');
+});
+
 test('webhook log is accessible', async () => {
   await request(app)
     .post('/api/webhook/dodo')

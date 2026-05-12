@@ -1,39 +1,39 @@
 # DodoArc
 
-DodoArc is the programmable spend-control layer for AI agent products. Human users pay with familiar fiat checkout, agents spend against app-defined policy, and every paid tool call can produce a verifiable settlement receipt on Solana.
+DodoArc is billing and spend-control infrastructure for AI products. Founders keep their own app, Dodo handles checkout, DodoArc activates credits, enforces backend spend policy, and traces settlement receipts on Solana.
 
 ## Problem
 
-AI agents can now call paid tools, spend credits, and trigger real financial actions, but the billing stack around them is still incomplete.
+AI products can now call paid tools, spend credits, and trigger real financial actions, but the billing stack around them is still incomplete.
 
 - Users pay in familiar local rails like UPI and cards.
-- Agents operate in API and crypto-native environments.
-- Billing systems handle checkout, but not controlled agent spend after payment.
-- Operators still lack a clear path from fiat payment to credits, agent execution, and settlement.
+- Founder backends operate in API and crypto-native environments.
+- Billing systems handle checkout, but not controlled spend after payment.
+- Operators still lack a clear path from fiat payment to credits, backend execution, and settlement.
 
 That leaves a missing layer between human payment and autonomous agent action.
 
 ## Solution
 
-DodoArc connects familiar fiat checkout on the front end with policy-controlled agent execution on the back end:
+DodoArc connects familiar fiat checkout on the front end with policy-controlled backend execution on the back end:
 
 - Human users pay through Dodo Payments using familiar rails.
-- DodoArc activates credits and links the user to a developer app.
-- Agents consume those credits only if the app policy allows the run.
+- DodoArc activates credits and links the user to a founder app.
+- Backend runs consume those credits only if the app policy allows the action.
 - Every paid tool call can generate a verifiable USDC settlement receipt on Solana.
 - Operators and developers get a live dashboard, webhook visibility, traceability, and app-scoped controls.
 
 In short, DodoArc turns:
 
 - `Fiat in`
-- `Policy-controlled agent spend`
+- `Policy-controlled backend spend`
 - `Solana settlement receipts out`
 
 ## What DodoArc Solves
 
-- Lets non-crypto users pay for AI agent products with familiar local rails.
-- Gives developers a control plane for app-level budgets and spending rules.
-- Prevents unsafe agent runs before credits are consumed.
+- Lets non-crypto users pay for AI products with familiar local rails.
+- Gives founders a control plane for app-level budgets and spending rules.
+- Prevents unsafe backend actions before credits are consumed.
 - Bridges offchain billing with onchain-verifiable settlement receipts.
 - Makes the full payment-to-agent-to-settlement path observable for operators.
 
@@ -41,11 +41,12 @@ In short, DodoArc turns:
 
 - Dodo Payments checkout integration for human users.
 - Credit activation and subscription tracking after successful payment.
-- Multi-tenant developer apps with API keys and embeddable checkout.
+- Multi-tenant app integrations with API keys and embeddable checkout.
+- Founder and user login surfaces with role-based access to dashboard and app pages.
 - Per-app spend policies for pause/resume, daily caps, per-run caps, and approval thresholds.
-- Agent execution with enforced credit deduction and policy checks.
+- Backend execution with enforced credit deduction and policy checks.
 - x402-style Solana settlement receipts for paid tool calls.
-- MCP discovery for agent-native integration.
+- MCP discovery for runtime and backend integration.
 - Live dashboard visibility across subscriptions, credits, webhooks, agent runs, and settlements.
 
 ## Architecture
@@ -60,6 +61,7 @@ flowchart LR
     end
 
     subgraph API["Node.js + Express API"]
+        Auth["POST/GET /api/auth/*"]
         Plans["GET /api/plans"]
         Checkout["POST /api/checkout/create"]
         Subs["GET /api/subscriptions"]
@@ -83,7 +85,7 @@ flowchart LR
         DodoService["Dodo Checkout Wrapper"]
         CreditEngine["Credit Engine"]
         WebhookEngine["Webhook Processor"]
-        AgentService["Trading Signal Agent"]
+        AgentService["Backend Spend Runtime"]
         X402Service["x402 Settlement Service"]
         SolanaService["Solana Devnet Service"]
         MetricsService["Dashboard Metrics Aggregator"]
@@ -99,6 +101,7 @@ flowchart LR
     Solana["Solana Devnet"]
     LiveUpdates["WebSocket Live Updates"]
 
+    Landing --> Auth
     Landing --> Plans
     Landing --> Checkout
     Dashboard --> Subs
@@ -159,9 +162,9 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A["User opens DodoArc"] --> B["Reviews billing plans"]
-    B --> C["Selects Starter or Pro"]
-    C --> D["DodoArc creates checkout session"]
+    A["Founder logs into DodoArc"] --> B["Creates app integration and maps plan to credits"]
+    B --> C["Founder connects Dodo billing and webhook secret"]
+    C --> D["User buys access in the founder's app"]
     D --> E{"Dodo checkout available?"}
     E -->|Yes| F["Redirect to Dodo Payments"]
     E -->|Local fallback| G["Open mock success flow"]
@@ -173,12 +176,12 @@ flowchart TD
     K -->|Yes| L["Return safe duplicate response"]
     K -->|No| M["Activate subscription credits"]
     M --> N["Register app user + persist subscription, credits, event, and webhook log"]
-    N --> O["Developer app loads spend policy"]
-    O --> P["User connects Phantom or demo wallet"]
-    P --> Q["Run Trading Signal Agent"]
+    N --> O["Founder backend asks DodoArc before a paid run"]
+    O --> P["DodoArc loads app spend policy"]
+    P --> Q["Backend action requests credits"]
     Q --> R{"Policy allows run?"}
     R -->|No| S["Return blocked state before credits are consumed"]
-    R -->|Yes| T["Deduct 10 credits"]
+    R -->|Yes| T["Deduct mapped run credits"]
     T --> U["Create x402-style settlement receipts"]
     U --> V["Persist agent run and receipt history"]
     V --> W["Dashboard refreshes live with metrics, trace events, and explorer links"]
@@ -196,18 +199,18 @@ sequenceDiagram
     participant Dodo as Dodo Checkout
     participant Agent as AI Agent
 
-    Dev->>Portal: Register developer
-    Portal->>API: POST /api/developer/register
-    API-->>Portal: API key shown once
-    Dev->>Portal: Create agent app
+    Dev->>Portal: Sign up as founder
+    Portal->>API: POST /api/auth/signup
+    API-->>Portal: Founder session + API key
+    Dev->>Portal: Create app integration
     Portal->>API: POST /api/developer/apps
     API-->>Portal: Embed code + checkout preview
-    Dev->>Site: Paste /embed/dodoarc.js snippet
+    Dev->>Site: Paste /embed/dodoarc.js snippet into existing app
     Site->>API: POST /api/checkout/create
     API->>Dodo: Create checkout session
     Dodo-->>API: payment.succeeded webhook
     API->>API: Register app user + activate credits
-    API-->>Agent: Credits available
+    API-->>Agent: Credits available for scoped user
     Agent->>API: POST /api/agent/run with x-api-key and appId
     API->>Policy: Enforce app spend policy
     Policy-->>API: Allow or block
@@ -221,12 +224,12 @@ sequenceDiagram
     participant UI as Dashboard
     participant API as Agent API
     participant Credits as Credit Engine
-    participant Agent as Trading Signal Agent
+    participant Agent as Founder Backend
     participant Solana as Solana Devnet
     participant DB as SQLite
 
     UI->>API: POST /api/agent/run
-    API->>Credits: Deduct 10 credits
+    API->>Credits: Deduct mapped credits
     Credits-->>API: Credits remaining
     API->>Agent: Run paid tool workflow
     Agent->>Solana: x402-style USDC settlement
@@ -252,11 +255,15 @@ sequenceDiagram
 ```text
 DodoArc/
 |-- public/
+|   |-- app.html
+|   |-- login.html
 |   |-- embed/dodoarc.js
 |   |-- index.html
+|   |-- login.js
 |   |-- landing.js
 |   |-- dashboard.html
 |   |-- dashboard.js
+|   |-- user-dashboard.js
 |   `-- mock-success.html
 |-- scripts/
 |   |-- check-env.js
@@ -269,6 +276,7 @@ DodoArc/
 |   |-- middleware/auth.js
 |   |-- mcp/server.js
 |   |-- routes/
+|   |   |-- auth.js
 |   |   |-- agent.js
 |   |   |-- checkout.js
 |   |   |-- credits.js
@@ -337,10 +345,22 @@ Open:
 http://localhost:3000
 ```
 
+Founder login:
+
+```text
+http://localhost:3000/login?role=founder
+```
+
 Dashboard:
 
 ```text
 http://localhost:3000/dashboard
+```
+
+User access:
+
+```text
+http://localhost:3000/app
 ```
 
 ## Test and Verify
@@ -382,4 +402,4 @@ flowchart LR
     Developer --> MCP["MCP Server"]
 ```
 
-DodoArc now demonstrates a testable billing and developer-platform foundation for AI agent products: Dodo Payments checkout, webhook-based activation, durable tenant-scoped billing records, credit-backed agent execution, app-level spend controls, x402-style Solana settlement receipts, live operator metrics, developer API keys, embeddable checkout, and MCP-native agent access.
+DodoArc now demonstrates a testable billing and spend-control foundation for AI products: Dodo Payments checkout, webhook-based activation, durable tenant-scoped billing records, credit-backed backend execution, app-level spend controls, x402-style Solana settlement receipts, live operator metrics, developer API keys, embeddable checkout, and MCP integration.

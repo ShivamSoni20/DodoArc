@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DodoArc — Billing OS for AI Agent Products</title>
+<title>DodoArc - Billing and Spend Controls for AI Products</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -130,9 +130,6 @@
     font-size: 1.1rem; color: var(--ink-soft); line-height: 1.7; max-width: 560px; margin: 0 auto 2.5rem;
     font-weight: 400;
     animation: fade-up 0.8s 0.2s ease both;
-  }
-  .hero-copy .hero-sub:first-of-type {
-    display: none;
   }
 
   .hero-actions {
@@ -588,8 +585,8 @@
     <a href="#how">How it works</a>
     <a href="#features">Features</a>
     <a href="#pricing">Pricing</a>
-    <a href="/dashboard">Dashboard</a>
-    <a href="/dashboard" class="nav-cta">Get Started →</a>
+    <a href="/login?role=founder">Founder Login</a>
+    <a href="/login" class="nav-cta">Login →</a>
   </div>
 </nav>
 
@@ -603,16 +600,13 @@
       Colosseum Frontier 2026 · Dodo Payments Track
     </div>
     <h1 class="hero-title">
-      The <em>billing OS</em><br>for <span class="lavender-word">AI agent</span> products
+      The <em>billing layer</em><br>for <span class="lavender-word">AI products</span>
     </h1>
     <p class="hero-sub">
-      Sell subscriptions in INR. Let users pay with UPI. Let agents settle tool calls in USDC on Solana. One platform — fiat in, programmable settlement out.
-    </p>
-    <p class="hero-sub">
-      The programmable spend-control layer for AI agent products. Human users pay in fiat. Agents spend against policy. Every tool call settles on Solana.
+      DodoArc plugs into AI products after checkout. Dodo handles billing, DodoArc activates credits, enforces spend policy, and traces settlement receipts on Solana.
     </p>
     <div class="hero-actions">
-      <a href="/dashboard" class="btn-primary">View Dashboard →</a>
+      <a href="/login" class="btn-primary">Login →</a>
       <a href="#how" class="btn-secondary">See how it works</a>
     </div>
 
@@ -624,9 +618,9 @@
           <div class="float-stat-sub">↑ 38% this month</div>
         </div>
         <div class="float-stat">
-          <div class="float-stat-label">Agent Credits Used</div>
+          <div class="float-stat-label">Credits Checked</div>
           <div class="float-stat-value">48.2K</div>
-          <div class="float-stat-sub">Across 3 active agents</div>
+          <div class="float-stat-sub">Across 3 production apps</div>
         </div>
         <div class="float-stat">
           <div class="float-stat-label">USDC Settled (Solana)</div>
@@ -651,7 +645,7 @@
           <div class="flow-arrow">→</div>
           <div class="flow-step">
             <div class="flow-icon olive">⚡</div>
-            <div class="flow-label">Agent runs</div>
+          <div class="flow-label">Backend run allowed</div>
           </div>
           <div class="flow-arrow">→</div>
           <div class="flow-step">
@@ -674,29 +668,29 @@
       <div class="step-card s1">
         <div class="step-num">01</div>
         <div class="step-icon">🏪</div>
-        <div class="step-title">Create your plan</div>
-        <div class="step-desc">Define subscription plans, credit packs, or usage tiers. Set per-unit credit cost for every agent action.</div>
+        <div class="step-title">Define billing in Dodo</div>
+        <div class="step-desc">Set your subscription, credit pack, or usage tier in Dodo and decide how many credits each backend action should consume.</div>
         <span class="step-tag tag-ink">Dodo Dashboard</span>
       </div>
       <div class="step-card s2">
         <div class="step-num">02</div>
         <div class="step-icon">📲</div>
-        <div class="step-title">User pays with UPI</div>
-        <div class="step-desc">Your users see a native Dodo checkout — UPI, card, Klarna, 150 countries. No Phantom wallet required.</div>
+        <div class="step-title">Customer pays normally</div>
+        <div class="step-desc">Your users see a Dodo checkout with UPI, cards, and local methods. No wallet setup is required to buy access.</div>
         <span class="step-tag tag-olive">Dodo Payments</span>
       </div>
       <div class="step-card s3">
         <div class="step-num">03</div>
         <div class="step-icon">🪝</div>
-        <div class="step-title">Webhook activates access</div>
-        <div class="step-desc">Dodo fires a webhook. DodoArc middleware grants credits or subscription access instantly. Zero manual work.</div>
+        <div class="step-title">Webhook activates credits</div>
+        <div class="step-desc">Dodo fires a webhook. DodoArc persists the payment, tops up credits, and links the user to the founder app automatically.</div>
         <span class="step-tag tag-lavender">Webhook API</span>
       </div>
       <div class="step-card s4">
         <div class="step-num">04</div>
         <div class="step-icon">⛓️</div>
-        <div class="step-title">x402 USDC settlement</div>
-        <div class="step-desc">When your agent calls a paid tool or MCP server, x402 headers trigger USDC micropayment on Solana in 400ms.</div>
+        <div class="step-title">Backend checks before spend</div>
+        <div class="step-desc">Before your app hits a paid model, tool, or MCP server, DodoArc enforces caps, pause state, and per-run policy, then records settlement proof.</div>
         <span class="step-tag tag-blush">Solana · x402</span>
       </div>
     </div>
@@ -707,12 +701,12 @@
 <section class="section features-section" id="features">
   <div class="section-inner">
     <div class="section-label">What's inside</div>
-    <h2 class="section-title">Everything a builder needs.<br>Nothing they don't.</h2>
+    <h2 class="section-title">Infrastructure your AI app can plug into.<br>Nothing extra to host.</h2>
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-icon fi-olive">🧾</div>
-        <div class="feature-title">Dodo Checkout Embed</div>
-        <div class="feature-desc">One-line embed for any web page. Supports INR, USD, EUR. UPI, cards, Klarna, PhonePe. Handles tax and compliance automatically.</div>
+        <div class="feature-title">Founder-owned checkout</div>
+        <div class="feature-desc">Use Dodo for the merchant-facing checkout while DodoArc links payments to credits, plans, and app scope behind the scenes.</div>
       </div>
       <div class="feature-card">
         <div class="feature-icon fi-lavender">🎛️</div>
@@ -731,13 +725,13 @@
       </div>
       <div class="feature-card">
         <div class="feature-icon fi-olive">📊</div>
-        <div class="feature-title">Unified Revenue Dashboard</div>
+        <div class="feature-title">Operator dashboard</div>
         <div class="feature-desc">See fiat revenue, credit consumption, agent run counts, and Solana settlement receipts — all in one screen. ARR visible from day one.</div>
       </div>
       <div class="feature-card">
         <div class="feature-icon fi-lavender">🔗</div>
-        <div class="feature-title">Solana Wallet Link</div>
-        <div class="feature-desc">Link a Phantom wallet to receive consolidated USDC settlement. One-click withdrawal. On-chain receipt for every settlement event.</div>
+        <div class="feature-title">App-level guardrails</div>
+        <div class="feature-desc">Set daily caps, per-run limits, approval thresholds, and pause states so expensive actions are rejected before credits are consumed.</div>
       </div>
     </div>
   </div>
@@ -767,8 +761,8 @@
       <div class="plan-card pro">
         <div class="plan-popular">Most Popular</div>
         <div class="plan-badge badge-pro">Pro</div>
-        <div class="plan-price"><span class="plan-currency">₹</span>2,999</div>
-        <div class="plan-period">per month · billed monthly</div>
+        <div class="plan-price"><span class="plan-currency">Rs</span>499</div>
+        <div class="plan-period">per month &middot; billed monthly</div>
         <ul class="plan-features">
           <li><span class="check">✓</span> Unlimited agent products</li>
           <li><span class="check">✓</span> Unlimited subscribers</li>
@@ -801,7 +795,7 @@
 <footer>
   <div>
     <div class="footer-logo">DodoArc</div>
-    <div class="footer-tagline">Billing OS for AI agent products on Solana.</div>
+    <div class="footer-tagline">Billing and spend controls for AI products on Solana.</div>
   </div>
   <div class="footer-links">
     <a href="#">Docs</a>

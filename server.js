@@ -10,6 +10,7 @@ const { WebSocketServer } = require('ws');
 
 const config = require('./src/config');
 const db = require('./src/services/db');
+const { attachSession, requireRolePage } = require('./src/middleware/auth');
 
 const app = express();
 const wsClients = new Set();
@@ -30,9 +31,11 @@ app.use(morgan('dev'));
 app.use('/api/webhook/dodo', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(attachSession);
 
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
+app.use('/api/auth', require('./src/routes/auth'));
 app.use('/api/plans', require('./src/routes/plans'));
 app.use('/api/checkout', require('./src/routes/checkout'));
 app.use('/api/webhook', require('./src/routes/webhook'));
@@ -90,6 +93,15 @@ app.get('/checkout/mock-success', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'mock-success.html'));
 });
 
+app.get('/payment-success', (req, res) => {
+  const params = new URLSearchParams();
+  params.set('role', 'user');
+  params.set('mode', 'login');
+  if (req.query.email) params.set('email', String(req.query.email));
+  if (req.query.plan) params.set('plan', String(req.query.plan));
+  res.redirect(`/login?${params.toString()}`);
+});
+
 app.get('/checkout/:appId', (req, res) => {
   const appRecord = db.getAppById(req.params.appId);
   if (!appRecord) return res.status(404).send('DodoArc app not found');
@@ -112,6 +124,9 @@ app.get('/checkout/:appId', (req, res) => {
     <h1>${escapeHtml(appRecord.name)}</h1>
     <p>${escapeHtml(appRecord.description || 'Subscribe to activate AI agent credits.')}</p>
     <p><strong>${escapeHtml(plan?.display_price || 'Plan')}</strong></p>
+    ${appRecord.billingConnected
+      ? '<p style="font-size:13px;color:#6B7C5C;">Founder billing connected. Paid checkout uses the app owner\'s Dodo merchant credentials.</p>'
+      : '<p style="font-size:13px;color:#A32D2D;">Founder billing is not connected yet. Paid checkout will be blocked until the app owner adds a Dodo API key, product ID, and webhook secret.</p>'}
     <div id="dodoarc-checkout"></div>
   </main>
   <script src="/embed/dodoarc.js"></script>
@@ -127,11 +142,17 @@ app.get('/checkout/:appId', (req, res) => {
 });
 
 app.get('/dashboard', (req, res) => {
-  const providedKey = req.query.key || req.headers['x-dashboard-key'];
-  if (config.DASHBOARD_API_KEY && providedKey !== config.DASHBOARD_API_KEY) {
-    return res.status(401).send('Dashboard API key required. Pass ?key=YOUR_KEY or x-dashboard-key.');
-  }
+  if (req.account?.role === 'user') return res.redirect('/app');
+  if (req.account?.role !== 'founder') return res.redirect('/login?role=founder');
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+app.get('/app', requireRolePage('user'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 app.get('/', (req, res) => {

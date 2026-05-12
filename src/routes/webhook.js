@@ -95,7 +95,7 @@ function activateCreditsFromPayment(eventType, data) {
   return actionTaken;
 }
 
-function pauseSubscriptionFromFailure(data = {}) {
+function freezeSubscriptionAccess(data = {}, reason = 'payment_failed', eventType = 'subscription_paused') {
   const payment = normalizePaymentData(data);
   if (!payment.email) return 'skipped_missing_email';
 
@@ -111,10 +111,11 @@ function pauseSubscriptionFromFailure(data = {}) {
     credits_total: subscription.credits_total
   });
   db.logEvent(
-    'subscription_paused',
+    eventType,
     {
       userId: user.id,
-      reason: 'payment_failed',
+      reason,
+      paymentId: payment.paymentId,
       developerId: payment.developerId,
       appId: payment.appId
     },
@@ -123,7 +124,7 @@ function pauseSubscriptionFromFailure(data = {}) {
       appId: payment.appId
     }
   );
-  return `paused_subscription_${subscription.id}`;
+  return `frozen_subscription_${subscription.id}_${reason}`;
 }
 
 function processEvent(event) {
@@ -135,10 +136,16 @@ function processEvent(event) {
     case 'payment.failed':
     case 'subscription.failed':
     case 'subscription.on_hold':
-      return pauseSubscriptionFromFailure(event.data);
+      return freezeSubscriptionAccess(event.data, 'payment_failed', 'subscription_paused');
     case 'subscription.cancelled':
       db.logEvent('subscription_cancelled', { id: event.data?.id || event.data?.subscription_id });
       return 'logged_cancellation';
+    case 'payment.refunded':
+    case 'refund.succeeded':
+      return freezeSubscriptionAccess(event.data, 'refund', 'subscription_frozen_refund');
+    case 'dispute.opened':
+    case 'dispute.created':
+      return freezeSubscriptionAccess(event.data, 'dispute', 'subscription_frozen_dispute');
     case 'credit.added':
     case 'credit.deducted':
     case 'credit.balance_low':
@@ -154,7 +161,7 @@ router.post('/dodo', (req, res) => {
   let eventId = 'unknown';
 
   try {
-    if (!dodo.verifyWebhookSignature(req.body, req.headers)) {
+    if (!dodo.verifyWebhookSignature(req.body, req.headers, db.getBillingWebhookSecrets())) {
       return res.status(401).json({ error: 'Invalid webhook signature' });
     }
 

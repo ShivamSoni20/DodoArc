@@ -4,20 +4,20 @@ const db = require('../services/db');
 const { runTradingAgent } = require('../services/agent');
 const { requireApiKey } = require('../middleware/auth');
 
-const AGENT_RUN_CREDITS = 10;
-
 router.post('/run', requireApiKey, async (req, res) => {
-  const { userId, agentName = 'Trading Signal Agent', appId } = req.body;
+  const { userId, agentName = 'Backend Spend Flow', appId } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId required' });
 
   let effectiveAppId = appId || null;
   let scopedSubscription = null;
+  let runCredits = 10;
 
   if (effectiveAppId) {
     const app = db.getAppById(effectiveAppId);
     if (!app || app.developerId !== req.developer.id) {
       return res.status(404).json({ error: 'App not found' });
     }
+    runCredits = Number(app.creditsPerRun || 10);
     if (!db.isUserInApp(effectiveAppId, req.developer.id, userId)) {
       return res.status(404).json({ error: 'User is not linked to this app' });
     }
@@ -61,22 +61,22 @@ router.post('/run', requireApiKey, async (req, res) => {
         });
       }
 
-      if (AGENT_RUN_CREDITS > policy.max_credits_per_run) {
+      if (runCredits > policy.max_credits_per_run) {
         return res.status(402).json({
           error: 'Run cost exceeds app policy limit',
           code: 'PER_RUN_LIMIT_EXCEEDED',
           limit: policy.max_credits_per_run,
-          requested: AGENT_RUN_CREDITS
+          requested: runCredits
         });
       }
 
-      if (AGENT_RUN_CREDITS > policy.require_approval_above) {
+      if (runCredits > policy.require_approval_above) {
         db.logEvent(
           'agent_run_pending_approval',
           {
             userId,
             appId: effectiveAppId,
-            creditsRequested: AGENT_RUN_CREDITS,
+            creditsRequested: runCredits,
             developerId: req.developer.id
           },
           { developerId: req.developer.id, appId: effectiveAppId }
@@ -86,7 +86,7 @@ router.post('/run', requireApiKey, async (req, res) => {
           code: 'APPROVAL_REQUIRED',
           message: 'Run requires operator approval before execution',
           threshold: policy.require_approval_above,
-          requested: AGENT_RUN_CREDITS
+          requested: runCredits
         });
       }
     }
@@ -96,7 +96,7 @@ router.post('/run', requireApiKey, async (req, res) => {
     developerId: req.developer.id,
     appId: effectiveAppId
   });
-  if (remaining < AGENT_RUN_CREDITS) {
+  if (remaining < runCredits) {
     return res.status(402).json({
       error: 'Insufficient credits',
       remaining,
@@ -111,13 +111,13 @@ router.post('/run', requireApiKey, async (req, res) => {
     developer_id: req.developer.id,
     app_id: effectiveAppId,
     agent_name: agentName,
-    credits_used: AGENT_RUN_CREDITS,
+    credits_used: runCredits,
     status: 'running',
     policy_applied: effectiveAppId ? db.getAppPolicy(effectiveAppId) : null
   });
 
   try {
-    const deduction = db.deductCredits(userId, AGENT_RUN_CREDITS, {
+    const deduction = db.deductCredits(userId, runCredits, {
       developerId: req.developer.id,
       appId: effectiveAppId
     });
@@ -147,7 +147,7 @@ router.post('/run', requireApiKey, async (req, res) => {
       developerId: req.developer.id,
       agentName,
       signal: result.signal,
-      creditsUsed: AGENT_RUN_CREDITS,
+      creditsUsed: runCredits,
       usdcSettled: result.totalUsdcSettled,
       mock: result.mock,
       appId: effectiveAppId
@@ -157,14 +157,14 @@ router.post('/run', requireApiKey, async (req, res) => {
       runId,
       userId,
       signal: result.signal,
-      creditsUsed: AGENT_RUN_CREDITS,
+      creditsUsed: runCredits,
       usdcSettled: result.totalUsdcSettled
     });
 
     res.json({
       success: true,
       runId,
-      creditsUsed: AGENT_RUN_CREDITS,
+      creditsUsed: runCredits,
       creditsRemaining: deduction.remaining,
       result
     });

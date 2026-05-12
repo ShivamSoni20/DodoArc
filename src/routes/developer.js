@@ -93,6 +93,76 @@ router.get('/apps', requireApiKey, (req, res) => {
   res.json({ apps: db.getAppsByDeveloper(req.developer.id).map(enrichApp) });
 });
 
+router.put('/apps/:appId/config', requireApiKey, (req, res) => {
+  const app = db.getAppById(req.params.appId);
+  if (!app || app.developerId !== req.developer.id) {
+    return res.status(404).json({ error: 'App not found' });
+  }
+
+  const nextPlanId = req.body.planId ?? req.body.plan_id ?? null;
+  const nextCreditsPerRun = req.body.creditsPerRun ?? req.body.credits_per_run ?? null;
+
+  if (nextPlanId && !db.getPlanById(nextPlanId)) {
+    return res.status(400).json({ error: 'Unknown planId' });
+  }
+  if (nextCreditsPerRun !== null && (!Number.isFinite(Number(nextCreditsPerRun)) || Number(nextCreditsPerRun) <= 0)) {
+    return res.status(400).json({ error: 'creditsPerRun must be a positive number' });
+  }
+
+  const updated = db.updateAppConfig(app.id, {
+    planId: nextPlanId,
+    creditsPerRun: nextCreditsPerRun !== null ? Number(nextCreditsPerRun) : null
+  });
+
+  db.logEvent(
+    'app_config_updated',
+    {
+      developerId: req.developer.id,
+      appId: app.id,
+      planId: updated.planId,
+      creditsPerRun: updated.creditsPerRun
+    },
+    { developerId: req.developer.id, appId: app.id }
+  );
+
+  res.json({ success: true, app: enrichApp(updated) });
+});
+
+router.put('/apps/:appId/billing', requireApiKey, (req, res) => {
+  const app = db.getAppById(req.params.appId);
+  if (!app || app.developerId !== req.developer.id) {
+    return res.status(404).json({ error: 'App not found' });
+  }
+
+  const dodoApiKey = String(req.body.dodo_api_key ?? req.body.dodoApiKey ?? '').trim();
+  const dodoProductId = String(req.body.dodo_product_id ?? req.body.dodoProductId ?? '').trim();
+  const dodoWebhookSecret = String(req.body.dodo_webhook_secret ?? req.body.dodoWebhookSecret ?? '').trim();
+
+  if (!dodoApiKey || !dodoProductId || !dodoWebhookSecret) {
+    return res.status(400).json({
+      error: 'dodo_api_key, dodo_product_id, and dodo_webhook_secret are required'
+    });
+  }
+
+  const updated = db.updateAppBilling(app.id, {
+    dodo_api_key: dodoApiKey,
+    dodo_product_id: dodoProductId,
+    dodo_webhook_secret: dodoWebhookSecret
+  });
+
+  db.logEvent(
+    'app_billing_connected',
+    { developerId: req.developer.id, appId: app.id, billingConnected: updated.billingConnected },
+    { developerId: req.developer.id, appId: app.id }
+  );
+
+  res.json({
+    success: true,
+    app: enrichApp(updated),
+    billing: updated.billing
+  });
+});
+
 router.get('/apps/:appId/policy', requireApiKey, (req, res) => {
   const app = db.getAppById(req.params.appId);
   if (!app || app.developerId !== req.developer.id) {
@@ -182,6 +252,8 @@ router.get('/docs', (req, res) => {
       profile: 'GET /api/developer/me',
       createApp: 'POST /api/developer/apps',
       listApps: 'GET /api/developer/apps',
+      updateAppConfig: 'PUT /api/developer/apps/:appId/config',
+      connectBilling: 'PUT /api/developer/apps/:appId/billing',
       getPolicy: 'GET /api/developer/apps/:appId/policy',
       updatePolicy: 'PUT /api/developer/apps/:appId/policy',
       pauseApp: 'POST /api/developer/apps/:appId/pause',
@@ -196,7 +268,9 @@ router.get('/docs', (req, res) => {
     },
     quickStart: [
       'POST /api/developer/register to get an API key.',
-      'POST /api/developer/apps to create an agent product.',
+      'POST /api/developer/apps to create an app integration.',
+      'PUT /api/developer/apps/:appId/config to map a billing plan to credits and set credits consumed per backend run.',
+      'PUT /api/developer/apps/:appId/billing to connect the founder-owned Dodo API key, product, and webhook secret.',
       'Each app gets a default spend policy that can cap, pause, or block agent usage.',
       'Paste the returned embed code into your site.',
       'Users pay through Dodo checkout and credits activate from webhooks.',

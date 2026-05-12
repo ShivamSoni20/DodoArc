@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DodoArc Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cream:#f7f3ec; --white:#fdfaf5; --ink:#2a2820; --ink-soft:#7a7568;
+      --olive:#6b7c5c; --olive-dark:#4a5840; --lav:#ede8f4; --line:#e8e0d0;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; min-height:100vh; display:grid; place-items:center; padding:24px;
+      font-family:'Instrument Sans',sans-serif; background:var(--cream); color:var(--ink);
+    }
+    main {
+      width:min(460px,100%); background:var(--white); border:1px solid var(--line);
+      border-radius:20px; padding:28px; box-shadow:0 18px 50px rgba(42,40,32,.10);
+    }
+    .eyebrow {
+      font-family:'DM Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+      color:var(--olive); margin-bottom:14px;
+    }
+    h1 { margin:0 0 8px; font-family:'Cormorant Garamond',serif; font-size:42px; line-height:1; }
+    p { margin:0 0 18px; color:var(--ink-soft); line-height:1.6; font-size:14px; }
+    .segment { display:flex; gap:8px; margin-bottom:14px; }
+    .segment button {
+      flex:1; border:1px solid var(--line); background:transparent; padding:10px 12px;
+      border-radius:999px; cursor:pointer; font-weight:600; color:var(--ink-soft);
+    }
+    .segment button.active { background:var(--ink); color:var(--white); border-color:var(--ink); }
+    label { display:block; font-size:13px; font-weight:600; margin:12px 0 6px; }
+    input {
+      width:100%; padding:12px 14px; border:1px solid var(--line); border-radius:12px;
+      background:var(--cream); font:inherit; color:var(--ink);
+    }
+    input:focus { outline:2px solid rgba(107,124,92,.15); border-color:var(--olive); }
+    .hint { font-size:12px; color:var(--ink-soft); margin-top:6px; }
+    .cta {
+      width:100%; margin-top:18px; border:0; border-radius:999px; padding:12px 16px;
+      background:var(--olive); color:var(--white); font:inherit; font-weight:700; cursor:pointer;
+    }
+    .cta:hover { background:var(--olive-dark); }
+    .message {
+      min-height:20px; margin-top:12px; font-size:13px;
+    }
+    .message.error { color:#a32d2d; }
+    .message.ok { color:var(--olive-dark); }
+    .back { display:inline-block; margin-top:18px; color:var(--ink-soft); text-decoration:none; font-size:13px; }
+    .banner {
+      display:none; background:var(--lav); color:#6f6483; border-radius:12px; padding:10px 12px;
+      font-size:13px; line-height:1.5; margin-bottom:14px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">DodoArc access</div>
+    <h1 id="auth-title">Login</h1>
+    <p id="auth-copy">Choose whether you are a founder managing app integrations or a user accessing a paid AI product.</p>
+    <div id="login-banner" class="banner"></div>
+    <div class="segment" id="mode-toggle">
+      <button type="button" data-mode="login" class="active">Login</button>
+      <button type="button" data-mode="signup">Signup</button>
+    </div>
+    <div class="segment" id="role-toggle">
+      <button type="button" data-role="user" class="active">User</button>
+      <button type="button" data-role="founder">Founder</button>
+    </div>
+    <form id="auth-form">
+      <div id="name-field" style="display:none;">
+        <label for="name">Name</label>
+        <input id="name" name="name" placeholder="Your name">
+      </div>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" placeholder="you@example.com" required>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" placeholder="Minimum 8 characters" required>
+      <div class="hint" id="role-hint">User login opens your personal access dashboard.</div>
+      <button class="cta" id="submit-btn" type="submit">Login as user</button>
+      <div id="auth-message" class="message"></div>
+    </form>
+    <a class="back" href="/">Back to landing</a>
+  </main>
+  <script src="/login.js"></script>
+</body>
+</html>

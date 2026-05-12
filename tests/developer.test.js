@@ -57,6 +57,70 @@ test('developer can create app and receive embed code', async () => {
   expect(appResponse.body.checkoutUrl).toContain(appResponse.body.app.id);
 });
 
+test('developer can connect founder-owned Dodo billing to an app', async () => {
+  const body = await registerDeveloper('billing@dodoarc.xyz');
+  const appResponse = await request(app)
+    .post('/api/developer/apps')
+    .set('x-api-key', body.apiKey.key)
+    .send({ name: 'Signal Agent', description: 'Solana trading signals', planId: 'plan_pro' })
+    .expect(201);
+
+  const billingResponse = await request(app)
+    .put(`/api/developer/apps/${appResponse.body.app.id}/billing`)
+    .set('x-api-key', body.apiKey.key)
+    .send({
+      dodo_api_key: 'dodo_test_founder_key',
+      dodo_product_id: 'prod_founder_signal',
+      dodo_webhook_secret: 'whsec_founder_signal'
+    })
+    .expect(200);
+
+  expect(billingResponse.body.success).toBe(true);
+  expect(billingResponse.body.app.billingConnected).toBe(true);
+  expect(billingResponse.body.billing.hasApiKey).toBe(true);
+  expect(billingResponse.body.billing.dodoProductId).toBe('prod_founder_signal');
+});
+
+test('developer can update app product mapping', async () => {
+  const body = await registerDeveloper('mapping@dodoarc.xyz');
+  const appResponse = await request(app)
+    .post('/api/developer/apps')
+    .set('x-api-key', body.apiKey.key)
+    .send({ name: 'Signal Agent', description: 'Solana trading signals', planId: 'plan_pro', creditsPerRun: 10 })
+    .expect(201);
+
+  const configResponse = await request(app)
+    .put(`/api/developer/apps/${appResponse.body.app.id}/config`)
+    .set('x-api-key', body.apiKey.key)
+    .send({ planId: 'plan_starter', creditsPerRun: 7 })
+    .expect(200);
+
+  expect(configResponse.body.success).toBe(true);
+  expect(configResponse.body.app.planId).toBe('plan_starter');
+  expect(configResponse.body.app.creditsPerRun).toBe(7);
+});
+
+test('paid checkout is blocked when app billing is not connected', async () => {
+  const body = await registerDeveloper('merchant-gap@dodoarc.xyz');
+  const appResponse = await request(app)
+    .post('/api/developer/apps')
+    .set('x-api-key', body.apiKey.key)
+    .send({ name: 'Signal Agent', description: 'Solana trading signals', planId: 'plan_pro' })
+    .expect(201);
+
+  const checkoutResponse = await request(app)
+    .post('/api/checkout/create')
+    .send({
+      planId: 'plan_pro',
+      email: 'buyer@example.com',
+      name: 'Buyer',
+      appId: appResponse.body.app.id
+    })
+    .expect(409);
+
+  expect(checkoutResponse.body.code).toBe('APP_BILLING_NOT_CONNECTED');
+});
+
 test('MCP discovery endpoint lists DodoArc tools', async () => {
   const response = await request(app).get('/.well-known/mcp').expect(200);
 

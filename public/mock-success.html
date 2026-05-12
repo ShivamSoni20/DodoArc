@@ -62,7 +62,7 @@
           data: {
             payload_type: 'Payment',
             payment_id: `pay_local_${Date.now()}`,
-            total_amount: 299900,
+            total_amount: 49900,
             currency: 'INR',
             customer: { email, name },
             metadata: { planId, email, name }
@@ -75,7 +75,8 @@
         return;
       }
 
-      window.location.href = '/#dashboard';
+      const next = new URLSearchParams({ role: 'user', mode: 'signup', email });
+      window.location.href = `/login?${next.toString()}`;
     });
   </script>
 </body>

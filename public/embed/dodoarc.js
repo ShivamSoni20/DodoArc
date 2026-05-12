@@ -60,7 +60,7 @@
       '<div style="text-align:center;margin-bottom:18px;">',
       '<div style="font-size:11px;color:#6B7C5C;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Powered by DodoArc</div>',
       '<div style="font-size:24px;font-weight:700;color:#2A2820;">Subscribe</div>',
-      '<div style="font-size:13px;color:#7A7568;margin-top:4px;">Dodo checkout for AI agent credits</div>',
+      '<div style="font-size:13px;color:#7A7568;margin-top:4px;">Dodo checkout for AI product credits</div>',
       '</div>',
       '<input data-dodoarc-email type="email" placeholder="you@example.com" value="' + (opts.email || '') + '" style="width:100%;padding:12px;margin-bottom:10px;border:1px solid #EDE8DE;border-radius:8px;font-size:14px;background:#fff;box-sizing:border-box;outline:none;">',
       '<button type="button" data-dodoarc-pay style="width:100%;padding:12px;background:#4A5840;color:#F7F3EC;border:0;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">' + (opts.buttonText || 'Continue to payment') + '</button>',

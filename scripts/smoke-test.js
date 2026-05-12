@@ -4,6 +4,7 @@ const BASE_URL = process.env.SMOKE_BASE_URL || `http://localhost:${process.env.P
 
 async function request(path, options = {}) {
   const response = await fetch(`${BASE_URL}${path}`, {
+    redirect: options.redirect || 'follow',
     ...options,
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
   });
@@ -35,6 +36,7 @@ async function main() {
   }
 
   let apiKey = '';
+  let founderCookie = '';
   let userId = '';
   let demoApiKey = '';
   let demoAppId = '';
@@ -52,9 +54,9 @@ async function main() {
   });
 
   await check('dashboard loads', async () => {
-    const { response, body } = await request('/dashboard');
-    assert(response.ok, 'dashboard did not return 200');
-    assert(String(body).includes('db-main-content'), 'dashboard shell missing');
+    const { response } = await request('/dashboard', { redirect: 'manual' });
+    assert(response.status === 302, 'dashboard should redirect without login');
+    assert(String(response.headers.get('location') || '').includes('/login?role=founder'), 'dashboard did not redirect to founder login');
   });
 
   await check('plans endpoint', async () => {
@@ -72,6 +74,28 @@ async function main() {
     assert(response.status === 201, 'developer registration failed');
     assert(body.apiKey?.key?.startsWith('da_live_'), 'api key missing');
     apiKey = body.apiKey.key;
+  });
+
+  await check('founder signup and dashboard access', async () => {
+    const email = `founder-${Date.now()}@dodoarc.xyz`;
+    const { response, body } = await request('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({
+        role: 'founder',
+        name: 'Smoke Founder',
+        email,
+        password: 'password123'
+      })
+    });
+    assert(response.status === 201, 'founder signup failed');
+    founderCookie = response.headers.get('set-cookie') || '';
+    assert(founderCookie.includes('dodoarc_session='), 'founder session cookie missing');
+    assert(body.redirectTo === '/dashboard', 'founder redirect missing');
+
+    const dash = await request('/dashboard', {
+      headers: { cookie: founderCookie }
+    });
+    assert(dash.response.ok, 'dashboard not accessible after founder signup');
   });
 
   await check('developer app creation', async () => {

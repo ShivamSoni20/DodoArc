@@ -1,77 +1,86 @@
 phase	idea
-completed_at	2026-05-11 05:10:00 +0530
+completed_at	2026-05-12 07:20:00 +0530
 project	DodoArc
 
-# DodoArc Idea Context
+DodoArc Idea Context
 
-## Chosen Idea
+Chosen Idea
 
-DodoArc is a programmable spend-control layer for AI agent products using Dodo Payments and Solana.
+DodoArc is billing and spend-control infrastructure for AI products using Dodo Payments and Solana.
 
 One-liner:
 
-DodoArc lets human users pay in familiar fiat rails, then lets agents spend those credits only within app-defined policy, with settlement receipts traced on Solana.
+DodoArc lets founders keep their own AI app, sell access in fiat through Dodo Payments, enforce app-level spend policies before backend tool usage, and trace settlement receipts on Solana.
 
-## Target User
+Target User
 
-- AI product founders selling agent workflows to mainstream users.
-- Developer teams building agent products that need billing, usage control, and spend guardrails.
-- Operator teams that need visibility from checkout to credits to agent execution to settlement.
+AI and SaaS founders building products with paid model, tool, or agent usage that need:
 
-## Problem
+- Dodo-based checkout and billing
+- app-linked subscriptions and credits
+- guardrails before expensive backend tool execution
+- operator visibility from payment to settlement
+- separate founder and user surfaces so operators and customers do not share the same dashboard
 
-AI agents can now call paid tools and trigger real spend, but the billing stack around them is still incomplete:
+Problem
 
-- users pay in fiat, while agents operate in API and crypto-native environments
-- billing systems stop at checkout and do not control post-payment agent spend
-- mainstream users do not start with wallets like Phantom
-- developers need app-level caps, pause controls, and approval thresholds
-- operators need a traceable path from payment to credits to settlement
+AI products can monetize with normal checkout rails, but the infrastructure after payment is still messy:
 
-## Solution
+- users pay in fiat, while founder backends spend against APIs and tools
+- billing systems stop at checkout instead of controlling post-payment spend
+- developers need caps, pause controls, and approval thresholds
+- operators need a traceable path from payment to credits to execution to settlement
+- mainstream users should not need crypto wallets just to access an AI product
 
-DodoArc connects Dodo Payments checkout to app-scoped agent execution:
+Solution
 
-- users pay via Dodo Payments
-- DodoArc activates credits from verified webhook events
-- users are linked to developer apps
-- agent runs are checked against policy before credits are consumed
-- each paid tool call can produce a verifiable Solana settlement receipt
-- developers and operators manage the full lifecycle from one dashboard
+DodoArc connects Dodo Payments billing to app-scoped backend execution:
 
-## Core Demo
+- users pay with familiar fiat rails through Dodo
+- DodoArc activates subscriptions and credits from verified webhooks
+- users are linked to founder apps
+- founders and users authenticate into role-specific surfaces
+- backend actions are checked against app policy before credits are consumed
+- each paid tool call can produce a Solana settlement receipt
+- developers and operators get a full trace from checkout to spend to settlement
 
-Dodo checkout or local demo payment  
--> verified webhook  
--> credit activation  
--> app user registration  
--> policy check  
--> agent run  
--> x402-style settlement receipts  
--> live dashboard trace
+Core demo:
 
-## Why Solana
+Dodo checkout
+-> verified webhook
+-> subscription + credit activation
+-> app user registration
+-> policy enforcement
+-> backend run
+-> Solana receipt creation
+-> operator dashboard trace
 
-Solana is used for fast, low-cost, verifiable settlement proof for agent-paid tool usage. The MVP uses devnet-oriented receipt generation and can execute real settlement when credentials are configured. The stronger product path is programmable settlement and policy-aware treasury routing for AI-native commerce.
+Why Solana
 
-## Dodo Integration
+Solana is used for fast, low-cost, verifiable settlement proof for paid tool usage. The current MVP is devnet-oriented and can fall back to mock receipts locally, while the stronger product path is programmable settlement and treasury-aware AI billing infrastructure.
+
+Dodo Integration
 
 Required MVP integrations:
 
-- Dodo checkout session creation
-- verified Dodo webhook handling
-- payment.succeeded lifecycle for credit activation
-- subscription / billing visibility in the dashboard
-- app-scoped metadata linking checkout to developer products
+- Dodo checkout sessions
+- checkout metadata linking users to plans/apps
+- verified Dodo webhooks
+- `payment.succeeded`
+- subscription + credits activation
+- dashboard visibility across billing, policy, and usage events
+- role-aware founder login and user access pages
 
-## MVP Milestones
+MVP Milestones
 
-- Build checkout, webhook, and credit activation.
-- Add durable dashboard visibility and billing persistence.
-- Add agent execution with receipt-linked settlement proof.
-- Add developer apps, API keys, embed checkout, and MCP discovery.
-- Add app-level spend policies and tenant-scoped control.
+Build checkout, webhook, and credit activation.
+Add durable dashboard visibility and billing persistence.
+Add backend execution with receipt-linked settlement proof.
+Add API keys, app checkout, and embed support.
+Add app-level spend policies and tenant-scoped control.
+Add role-based login so founders land on the operator dashboard and users land on their own access page.
 
-## Links
+Links
 
 GitHub: https://github.com/ShivamSoni20/DodoArc
+X: https://x.com/DodoArc_

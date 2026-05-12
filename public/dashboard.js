@@ -37,6 +37,16 @@ const API = {
     },
     body: JSON.stringify(payload)
   }),
+  updateAppConfig: (appId, payload) => getJson(`/api/developer/apps/${appId}/config`, {
+    method: 'PUT',
+    headers: developerHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  }),
+  connectAppBilling: (appId, payload) => getJson(`/api/developer/apps/${appId}/billing`, {
+    method: 'PUT',
+    headers: developerHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  }),
   developerMe: () => getJson('/api/developer/me', {
     headers: developerHeaders()
   }),
@@ -60,18 +70,38 @@ const API = {
     headers: developerHeaders()
   }),
   mcpDiscovery: () => getJson('/.well-known/mcp'),
+  authMe: () => getJson('/api/auth/me'),
   runAgent: (userId, appId = null, apiKey = getDeveloperApiKey()) => getJson('/api/agent/run', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(apiKey ? { 'x-api-key': apiKey } : {})
     },
-    body: JSON.stringify({ userId, appId, agentName: 'Trading Signal Agent' })
+    body: JSON.stringify({ userId, appId, agentName: 'Backend Spend Flow' })
   }),
 };
 
 function getDeveloperApiKey() {
   return sessionStorage.getItem('dodoarc_api_key') || '';
+}
+
+async function hydrateFounderSession() {
+  if (getDeveloperApiKey()) return;
+  try {
+    const data = await API.authMe();
+    if (data.account?.role === 'founder' && data.apiKey) {
+      sessionStorage.setItem('dodoarc_api_key', data.apiKey);
+    }
+  } catch {}
+}
+
+async function logoutToLogin() {
+  await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  sessionStorage.removeItem('dodoarc_api_key');
+  sessionStorage.removeItem('dodoarc_latest_app');
+  sessionStorage.removeItem('dodoarc_wallet');
+  sessionStorage.removeItem('dodoarc_wallet_demo');
+  window.location.href = '/login?role=founder';
 }
 
 function getLatestDeveloperApp() {
@@ -332,7 +362,7 @@ const views = {
       <div class="metrics-row">
         ${metricCard('MRR (Fiat)', metrics.mrrFormatted, 'active paid subscriptions', 'up')}
         ${metricCard('Active Subscribers', metrics.activeSubscribers, `${metrics.totalSubscribers} total`, 'up')}
-        ${metricCard('Credits Consumed', Number(metrics.totalCreditsUsed || 0).toLocaleString('en-IN'), `${metrics.completedAgentRuns} agent runs`, 'flat')}
+        ${metricCard('Credits Consumed', Number(metrics.totalCreditsUsed || 0).toLocaleString('en-IN'), `${metrics.completedAgentRuns} backend runs`, 'flat')}
         ${metricCard('USDC Settled', `$${Number(metrics.totalUsdcSettled || 0).toFixed(4)}`, 'x402 receipts', 'up')}
       </div>
       <div class="dash-grid2" style="margin-top:1rem;">
@@ -346,12 +376,12 @@ const views = {
 
   apps: async () => {
     if (!getDeveloperApiKey()) {
-      return developerAuthState('My Apps', 'Register as a developer to view app-scoped subscriptions, users, and policy state.');
+      return developerAuthState('My Apps', 'Register an app integration to view app-scoped subscriptions, users, and policy state.');
     }
 
     const { apps = [] } = await API.developerMe();
     if (!apps.length) {
-      return `<div class="dash-page-title">My Apps</div><div class="dash-widget">${emptyState('No apps yet. Create one in the Developer Portal.')}</div>`;
+      return `<div class="dash-page-title">My Apps</div><div class="dash-widget">${emptyState('No apps yet. Create one in App Setup.')}</div>`;
     }
 
     const appRows = await Promise.all(apps.map(async (app) => ({
@@ -362,19 +392,33 @@ const views = {
 
     return `
       <div class="dash-page-title">My Apps</div>
-      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each app gets its own checkout, users, and spend policy.</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each founder app keeps its own checkout, users, and runtime while DodoArc manages credits, policy, and settlement traces.</div>
       ${appRows.map(({ app, policy, users }) => `
         <div class="dash-widget" style="margin-bottom:1rem;">
           <div class="widget-title">
             <span>${escapeHtml(app.name)}</span>
             <span class="status-pill ${policy?.paused ? 'sp-paused' : 'sp-active'}">${policy?.paused ? 'Paused' : 'Active'}</span>
           </div>
-          <div style="font-size:0.75rem;color:var(--ink-soft);margin-bottom:0.8rem;">${escapeHtml(app.description || 'Agent product')}</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;">
+          <div style="font-size:0.75rem;color:var(--ink-soft);margin-bottom:0.8rem;">${escapeHtml(app.description || 'AI product integration')}</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;">
             ${policyMetric('Plan', app.planId)}
             ${policyMetric('Users', String(users.length))}
-            ${policyMetric('Per run', `${policy?.max_credits_per_run ?? 50} cr`)}
+            ${policyMetric('Credits / run', `${app.creditsPerRun || 10} cr`)}
             ${policyMetric('Daily cap', `${policy?.daily_spend_cap ?? 500} cr`)}
+            ${policyMetric('Billing', app.billingConnected ? 'Connected' : 'Missing')}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:0.8rem;">
+            <select id="plan-${app.id}" style="width:140px;padding:0.55rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);">
+              <option value="plan_starter" ${app.planId === 'plan_starter' ? 'selected' : ''}>Starter</option>
+              <option value="plan_pro" ${app.planId === 'plan_pro' ? 'selected' : ''}>Pro</option>
+            </select>
+            <input id="runcredits-${app.id}" type="number" min="1" value="${app.creditsPerRun || 10}" style="width:140px;padding:0.55rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);">
+            <button onclick="updateAppConfig('${app.id}')" style="background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.5rem 1rem;font-size:0.75rem;font-weight:600;cursor:pointer;">Save mapping</button>
+          </div>
+          <div style="margin-top:0.8rem;font-size:0.72rem;color:${app.billingConnected ? 'var(--olive-dark)' : '#A32D2D'};">
+            ${app.billingConnected
+              ? 'Paid checkouts for this app use the founder-configured Dodo merchant credentials.'
+              : 'This app cannot accept paid users yet. Connect the founder Dodo API key, product ID, and webhook secret in the Developer Portal.'}
           </div>
         </div>
       `).join('')}`;
@@ -406,29 +450,29 @@ const views = {
     const receipts = settlement.receipts || [];
     const totalSettled = settlement.totalSettled || 0;
     return `
-      <div class="dash-page-title">Agent Runs</div>
-      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each run consumes 10 credits, checks spend policy, and creates x402-style USDC settlement receipts.</div>
+      <div class="dash-page-title">Backend Runs</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Each backend run consumes 10 credits, checks spend policy, and creates x402-style USDC settlement receipts.</div>
       <div class="dash-widget" style="margin-bottom:1rem;background:var(--olive-mist);border-color:rgba(107,124,92,0.3);">
-        <div class="widget-title">Run Demo Agent</div>
+        <div class="widget-title">Run Demo Backend Flow</div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <div style="flex:1;font-size:0.82rem;color:var(--ink-soft);line-height:1.6;">Trading Signal Agent calls paid market data, sentiment, and signal tools. It costs 10 credits, is enforced by app policy, and settles 0.0035 USDC across 3 tool calls.</div>
-          <button id="run-agent-btn" onclick="runDemoAgent()" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.65rem 1.5rem;font-family:'Instrument Sans',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">Run Agent (10 credits)</button>
+          <div style="flex:1;font-size:0.82rem;color:var(--ink-soft);line-height:1.6;">This demo simulates a founder backend calling paid market data, sentiment, and signal tools. It costs 10 credits, is enforced by app policy, and settles 0.0035 USDC across 3 tool calls.</div>
+          <button id="run-agent-btn" onclick="runDemoAgent()" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.65rem 1.5rem;font-family:'Instrument Sans',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">Run backend flow</button>
         </div>
         <div id="agent-run-output" style="display:none;margin-top:1rem;"></div>
       </div>
       <div class="dash-widget" style="margin-bottom:1rem;">
         <div class="widget-title">x402 Settlement Log <span style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--ink-soft);">${Number(totalSettled).toFixed(4)} USDC total - devnet</span></div>
-        ${receipts.length ? `<table class="sub-table"><thead><tr><th>Run</th><th>Tool</th><th>Amount</th><th>Tx</th><th>Type</th></tr></thead><tbody>${receipts.map((receipt) => `<tr><td style="font-family:'DM Mono',monospace;font-size:0.62rem;">${escapeHtml(receipt.agentRunId)}</td><td>${escapeHtml(receipt.tool)}</td><td>${Number(receipt.amountUsdc || 0).toFixed(4)} USDC</td><td><a href="${receipt.explorer}" target="_blank" rel="noreferrer" style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--lavender-dark);">${escapeHtml(String(receipt.signature || '').slice(0, 12))}...</a></td><td><span class="status-pill ${receipt.mock ? 'sp-trial' : 'sp-active'}">${receipt.mock ? 'mock' : 'devnet'}</span></td></tr>`).join('')}</tbody></table>` : emptyState('No settlements yet. Run the demo agent above.')}
+        ${receipts.length ? `<table class="sub-table"><thead><tr><th>Run</th><th>Tool</th><th>Amount</th><th>Tx</th><th>Type</th></tr></thead><tbody>${receipts.map((receipt) => `<tr><td style="font-family:'DM Mono',monospace;font-size:0.62rem;">${escapeHtml(receipt.agentRunId)}</td><td>${escapeHtml(receipt.tool)}</td><td>${Number(receipt.amountUsdc || 0).toFixed(4)} USDC</td><td><a href="${receipt.explorer}" target="_blank" rel="noreferrer" style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--lavender-dark);">${escapeHtml(String(receipt.signature || '').slice(0, 12))}...</a></td><td><span class="status-pill ${receipt.mock ? 'sp-trial' : 'sp-active'}">${receipt.mock ? 'mock' : 'devnet'}</span></td></tr>`).join('')}</tbody></table>` : emptyState('No settlements yet. Run the demo flow above.')}
       </div>
       <div class="dash-widget">
         <div class="widget-title">Run History</div>
-        ${runs.length ? `<table class="sub-table"><thead><tr><th>Run ID</th><th>Agent</th><th>Credits</th><th>Signal</th><th>Status</th><th>Time</th></tr></thead><tbody>${runs.map((run) => `<tr><td style="font-family:'DM Mono',monospace;font-size:0.62rem;">${escapeHtml(run.run_id)}</td><td>${escapeHtml(run.agent_name)}</td><td>-${run.credits_used}</td><td style="font-weight:600;">${escapeHtml(run.result?.signal || '-')}</td><td><span class="status-pill ${statusClass(run.status)}">${escapeHtml(run.status)}</span></td><td>${formatTime(run.created_at)}</td></tr>`).join('')}</tbody></table>` : emptyState('No agent runs yet.')}
+        ${runs.length ? `<table class="sub-table"><thead><tr><th>Run ID</th><th>Agent</th><th>Credits</th><th>Signal</th><th>Status</th><th>Time</th></tr></thead><tbody>${runs.map((run) => `<tr><td style="font-family:'DM Mono',monospace;font-size:0.62rem;">${escapeHtml(run.run_id)}</td><td>${escapeHtml(run.agent_name)}</td><td>-${run.credits_used}</td><td style="font-weight:600;">${escapeHtml(run.result?.signal || '-')}</td><td><span class="status-pill ${statusClass(run.status)}">${escapeHtml(run.status)}</span></td><td>${formatTime(run.created_at)}</td></tr>`).join('')}</tbody></table>` : emptyState('No backend runs yet.')}
       </div>`;
   },
 
   billing: async () => {
     const metrics = await API.platformMetrics();
-    return `<div class="dash-page-title">Billing</div><div class="dash-page-sub">Revenue from active Dodo subscriptions and credit top-ups.</div>${revenueChartWidget(metrics.monthlyRevenue || [])}`;
+    return `<div class="dash-page-title">Billing</div><div class="dash-page-sub">Revenue from founder-owned Dodo subscriptions and credit top-ups.</div>${revenueChartWidget(metrics.monthlyRevenue || [])}`;
   },
   fiat: async () => views.billing(),
   flow: async () => {
@@ -436,7 +480,7 @@ const views = {
     const lastSettlement = (settlement.receipts || [])[0];
     return `
       <div class="dash-page-title">DodoArc Flow</div>
-      <div class="dash-page-sub" style="margin-bottom:1.25rem;">The complete loop from local payment to credits, agent execution, and Solana settlement.</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">The complete loop from Dodo checkout to credits, backend approval, and Solana settlement proof.</div>
       <div class="dash-widget">
         <div style="display:flex;gap:8px;align-items:stretch;overflow-x:auto;padding:0.5rem 0;">
           ${flowNode('User Pays', 'UPI/Card via Dodo', metrics.mrrFormatted)}
@@ -445,7 +489,7 @@ const views = {
           ${flowArrow('activate')}
           ${flowNode('Credits', 'allocated per plan', `${Number(metrics.totalCreditsGranted || 0).toLocaleString('en-IN')} total`)}
           ${flowArrow('consume')}
-          ${flowNode('Agent Run', 'paid tools', `${metrics.completedAgentRuns} runs`)}
+          ${flowNode('Backend Run', 'paid tools', `${metrics.completedAgentRuns} runs`)}
           ${flowArrow('x402')}
           ${flowNode('USDC Settled', 'Solana devnet', `$${Number(metrics.totalUsdcSettled || 0).toFixed(4)}`)}
         </div>
@@ -458,12 +502,12 @@ const views = {
   },
   policies: async () => {
     if (!getDeveloperApiKey()) {
-      return developerAuthState('Spend Policies', 'Spend policies require a developer API key. Register first, then tune limits, pause apps, or raise caps.');
+      return developerAuthState('Spend Policies', 'Spend policies require a developer API key. Register an app integration first, then tune limits, pause apps, or raise caps.');
     }
 
     const { apps = [] } = await API.developerMe();
     if (!apps.length) {
-      return `<div class="dash-page-title">Spend Policies</div><div class="dash-widget">${emptyState('No apps yet. Create an app in Developer Portal first.')}</div>`;
+      return `<div class="dash-page-title">Spend Policies</div><div class="dash-widget">${emptyState('No apps yet. Create an app in App Setup first.')}</div>`;
     }
 
     const rows = await Promise.all(apps.map(async (app) => ({
@@ -474,7 +518,7 @@ const views = {
 
     return `
       <div class="dash-page-title">Spend Policies</div>
-      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Control how much each app's agents can spend per run and per day. Pause apps instantly.</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Control how much each founder app can spend per run and per day before the backend hits paid tools. Pause apps instantly.</div>
       ${rows.map(({ app, policy, users }) => `
         <div class="dash-widget" style="margin-bottom:1rem;">
           <div class="widget-title">
@@ -515,13 +559,13 @@ const views = {
 
     return `
       <div class="dash-page-title">Live Trace</div>
-      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Every event in the DodoArc pipeline - from checkout to settlement - traced in one view.</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Every event in the DodoArc pipeline - from checkout to backend spend and settlement - traced in one view.</div>
       <div style="display:flex;flex-direction:column;gap:0.75rem;">
         ${traceEvent('Checkout', 'Dodo payment session created', latestWebhook?.event_id || null, latestWebhook?.received_at, Boolean(latestWebhook))}
         ${traceEvent('Webhook', 'payment.succeeded received and idempotency checked', latestWebhook?.event_id || null, latestWebhook?.processed_at, latestWebhook?.status === 'processed')}
         ${traceEvent('Credits', 'Activated against app policy', latestRun ? `-${latestRun.credits_used} credits reserved` : null, latestRun?.created_at, Boolean(latestRun))}
         ${traceEvent('Policy Check', 'Daily cap, per-run limit, and pause status enforced', latestRun?.app_id || getActiveAppId(), latestRun?.created_at, Boolean(latestRun))}
-        ${traceEvent('Agent Run', `Signal: ${latestRun?.result?.signal || '-'} - ${latestRun?.agent_name || 'No run yet'}`, latestRun?.run_id || null, latestRun?.completed_at, latestRun?.status === 'completed')}
+        ${traceEvent('Backend Run', `Signal: ${latestRun?.result?.signal || '-'} - ${latestRun?.agent_name || 'No run yet'}`, latestRun?.run_id || null, latestRun?.completed_at, latestRun?.status === 'completed')}
         ${runReceipts.map((receipt) => traceEvent(`x402 -> ${receipt.tool}`, `${Number(receipt.amountUsdc || 0).toFixed(4)} USDC settled on Solana devnet`, receipt.signature ? `${String(receipt.signature).slice(0, 14)}...` : null, receipt.timestamp, true, receipt.explorer)).join('')}
       </div>`;
   },
@@ -537,7 +581,7 @@ const views = {
     };
     return `
       <div class="dash-page-title">MCP Tools</div>
-      <div class="dash-page-sub" style="margin-bottom:1.25rem;">AI agents can call DodoArc directly via MCP - no human in the loop.</div>
+      <div class="dash-page-sub" style="margin-bottom:1.25rem;">Founder backends and agent runtimes can call DodoArc directly via MCP for credits, runs, and settlement data.</div>
       <div class="dash-widget" style="margin-bottom:1rem;">
         <div class="widget-title">MCP Server Config</div>
         <pre id="mcp-config" style="background:var(--ink);color:#9FE1CB;padding:1rem;border-radius:var(--r-md);font-size:0.7rem;overflow-x:auto;white-space:pre-wrap;">${escapeHtml(JSON.stringify(config, null, 2))}</pre>
@@ -565,7 +609,7 @@ function developerView() {
   const latestApp = getLatestDeveloperApp();
   return `
     <div class="dash-page-title">Developer Portal</div>
-    <div class="dash-page-sub" style="margin-bottom:1.25rem;">Register, create agent products, copy API keys, and embed DodoArc checkout in another app.</div>
+    <div class="dash-page-sub" style="margin-bottom:1.25rem;">Register, create an app integration, connect founder-owned Dodo billing, and wire DodoArc into your existing AI product.</div>
     <div class="dash-grid2">
       <div class="dash-widget">
         <div class="widget-title">Register Developer</div>
@@ -577,11 +621,18 @@ function developerView() {
         <div id="dev-register-output" style="margin-top:10px;"></div>
       </div>
       <div class="dash-widget">
-        <div class="widget-title">Create Agent App</div>
+        <div class="widget-title">Create App Integration</div>
         <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">App name</label>
-        <input id="app-name" type="text" placeholder="My Trading Agent" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
+        <input id="app-name" type="text" placeholder="My AI Copilot" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
         <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Description</label>
-        <input id="app-desc" type="text" placeholder="AI signals for Solana traders" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:10px;">
+        <input id="app-desc" type="text" placeholder="Paid workflow app with guarded backend spend" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:10px;">
+        <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Billing plan</label>
+        <select id="app-plan" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
+          <option value="plan_pro">Pro</option>
+          <option value="plan_starter">Starter</option>
+        </select>
+        <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Credits per backend run</label>
+        <input id="app-credits-per-run" type="number" min="1" value="10" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:10px;">
         <button onclick="createDeveloperApp()" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.55rem 1rem;font-weight:600;cursor:pointer;">Create app</button>
         <div id="app-create-output" style="margin-top:10px;">${latestApp ? latestAppOutput(latestApp) : ''}</div>
       </div>
@@ -592,14 +643,28 @@ function developerView() {
       <button onclick="copyApiKey()" style="margin-top:8px;background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.45rem 0.9rem;font-size:0.75rem;cursor:pointer;">Copy key</button>
     </div>
     <div id="embed-code-section" class="dash-widget" style="${latestApp ? '' : 'display:none;'}margin-top:1rem;">
-      <div class="widget-title">Embed Code</div>
+      <div class="widget-title">Embed Snippet</div>
       <pre id="embed-code" style="background:var(--ink);color:#9FE1CB;padding:1rem;border-radius:var(--r-md);font-size:0.68rem;overflow-x:auto;white-space:pre-wrap;">${latestApp ? escapeHtml(latestApp.embed) : ''}</pre>
       <button onclick="copyEmbed()" style="margin-top:8px;background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.45rem 0.9rem;font-size:0.75rem;cursor:pointer;">Copy embed</button>
+    </div>
+    <div class="dash-widget" style="margin-top:1rem;">
+      <div class="widget-title">Connect App Billing</div>
+      <div style="font-size:0.74rem;color:var(--ink-soft);margin-bottom:0.9rem;">Founders must connect their own Dodo merchant API key, product ID, and webhook secret before an app can take paid subscriptions.</div>
+      <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">App ID</label>
+      <input id="billing-app-id" type="text" placeholder="${latestApp?.app?.id || 'app_...'}" value="${latestApp?.app?.id || ''}" style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
+      <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Dodo API key</label>
+      <input id="billing-dodo-api-key" type="password" placeholder="dodo_live_..." style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
+      <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Dodo product ID</label>
+      <input id="billing-dodo-product-id" type="text" placeholder="prod_..." style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:8px;">
+      <label style="font-size:0.7rem;color:var(--ink-soft);display:block;margin-bottom:4px;">Dodo webhook secret</label>
+      <input id="billing-dodo-webhook-secret" type="password" placeholder="whsec_..." style="width:100%;padding:0.6rem;border:1px solid var(--cream-dark);border-radius:var(--r-sm);margin-bottom:10px;">
+      <button onclick="connectAppBilling()" style="background:var(--ink);color:var(--cream);border:none;border-radius:100px;padding:0.55rem 1rem;font-weight:600;cursor:pointer;">Connect billing</button>
+      <div id="billing-connect-output" style="margin-top:10px;"></div>
     </div>`;
 }
 
 function latestAppOutput(data) {
-  return `<div style="color:var(--olive);font-size:0.78rem;">Created ${escapeHtml(data.app.name)}. <a href="${data.checkoutUrl}" target="_blank" rel="noreferrer" style="color:var(--lavender-dark);font-weight:700;">Preview checkout</a></div>`;
+  return `<div style="color:var(--olive);font-size:0.78rem;">Created ${escapeHtml(data.app.name)}. Plan: ${escapeHtml(data.app.planId)}. ${data.app.creditsPerRun} credits per run. ${data.app.billingConnected ? 'Billing connected.' : 'Connect founder billing before taking paid checkouts.'} <a href="${data.checkoutUrl}" target="_blank" rel="noreferrer" style="color:var(--lavender-dark);font-weight:700;">Preview checkout</a></div>`;
 }
 
 function developerAuthState(title, message) {
@@ -607,7 +672,7 @@ function developerAuthState(title, message) {
     <div class="dash-page-title">${escapeHtml(title)}</div>
     <div class="dash-widget" style="text-align:center;padding:2rem;">
       <div style="font-size:1.5rem;margin-bottom:0.75rem;">Policy</div>
-      <div style="font-size:0.85rem;font-weight:600;color:var(--ink);margin-bottom:0.5rem;">Register as a developer first</div>
+      <div style="font-size:0.85rem;font-weight:600;color:var(--ink);margin-bottom:0.5rem;">Register your app integration first</div>
       <div style="font-size:0.78rem;color:var(--ink-soft);margin-bottom:1rem;">${escapeHtml(message)}</div>
       <button onclick="renderView('developer')" style="background:var(--olive);color:var(--white);border:none;border-radius:100px;padding:0.5rem 1.25rem;font-size:0.8rem;font-weight:600;cursor:pointer;">Go to Developer Portal</button>
     </div>`;
@@ -717,7 +782,7 @@ async function runDemoAgent() {
     throw error;
   } finally {
     if (button) {
-      button.textContent = 'Run Agent (10 credits)';
+      button.textContent = 'Run backend flow';
       button.disabled = false;
     }
   }
@@ -733,7 +798,8 @@ async function runFullDemo() {
   try {
     showToast('Step 1/3: simulating Dodo payment');
     await API.demoPayment();
-    await sleep(700);
+    await renderView('subscribers');
+    await sleep(1800);
 
     showToast('Step 2/3: running agent and x402 settlements');
     const demoKeyResponse = await API.demoDeveloperKey();
@@ -743,7 +809,8 @@ async function runFullDemo() {
     const { user } = await API.demoUser();
     const appId = demoKeyResponse.app?.id;
     const result = await API.runAgent(user.id, appId, demoApiKey);
-    await sleep(700);
+    await renderView('agents');
+    await sleep(1800);
     showToast(`Step 3/3: ${result.result.signal} signal, ${result.result.totalUsdcSettled.toFixed(4)} USDC settled`);
     await renderView('overview');
   } catch (error) {
@@ -781,7 +848,9 @@ async function createDeveloperApp() {
     if (!getDeveloperApiKey()) throw new Error('Register first to get an API key.');
     const name = document.getElementById('app-name').value.trim();
     const description = document.getElementById('app-desc').value.trim();
-    const data = await API.createDeveloperApp({ name, description, planId: 'plan_pro' });
+    const planId = document.getElementById('app-plan').value;
+    const creditsPerRun = Number(document.getElementById('app-credits-per-run').value || 10);
+    const data = await API.createDeveloperApp({ name, description, planId, creditsPerRun });
     sessionStorage.setItem('dodoarc_latest_app', JSON.stringify({
       app: data.app,
       embed: data.embed,
@@ -802,13 +871,13 @@ function shouldAutoRefresh(view = currentView) {
 
 async function pauseApp(appId) {
   await API.pauseApp(appId);
-  showToast('App paused - all agent runs blocked');
+  showToast('App paused - all backend runs blocked');
   renderView('policies');
 }
 
 async function resumeApp(appId) {
   await API.resumeApp(appId);
-  showToast('App resumed - agent runs allowed');
+  showToast('App resumed - backend runs allowed');
   renderView('policies');
 }
 
@@ -1015,19 +1084,19 @@ function rebuildSidebar() {
   const sidebar = document.querySelector('.db-sidebar');
   if (!sidebar) return;
   sidebar.innerHTML = `
-    <div class="sidebar-section-label">Platform</div>
+    <div class="sidebar-section-label">Operator</div>
     <div class="sidebar-item active" data-view="overview"><span class="sidebar-icon">Ov</span> Overview</div>
-    <div class="sidebar-item" data-view="apps"><span class="sidebar-icon">App</span> My Apps</div>
+    <div class="sidebar-item" data-view="apps"><span class="sidebar-icon">App</span> App Integrations</div>
     <div class="sidebar-item" data-view="policies"><span class="sidebar-icon">Pol</span> Spend Policies</div>
     <div class="sidebar-section-label">Commerce</div>
     <div class="sidebar-item" data-view="subscribers"><span class="sidebar-icon">Usr</span> Users</div>
     <div class="sidebar-item" data-view="billing"><span class="sidebar-icon">Rs</span> Billing</div>
     <div class="sidebar-item" data-view="settlement"><span class="sidebar-icon">Set</span> Settlements</div>
     <div class="sidebar-section-label">Agents</div>
-    <div class="sidebar-item" data-view="agents"><span class="sidebar-icon">Run</span> Agent Runs</div>
+    <div class="sidebar-item" data-view="agents"><span class="sidebar-icon">Run</span> Backend Runs</div>
     <div class="sidebar-item" data-view="trace"><span class="sidebar-icon">Log</span> Live Trace</div>
-    <div class="sidebar-section-label">Developer</div>
-    <div class="sidebar-item" data-view="developer"><span class="sidebar-icon">Key</span> Register / Keys</div>
+    <div class="sidebar-section-label">Integration</div>
+    <div class="sidebar-item" data-view="developer"><span class="sidebar-icon">Key</span> App Setup / Keys</div>
     <div class="sidebar-item" data-view="webhooks"><span class="sidebar-icon">Web</span> Webhooks</div>
     <div class="sidebar-item" data-view="mcp"><span class="sidebar-icon">MCP</span> MCP Tools</div>`;
 
@@ -1044,7 +1113,8 @@ function initWebSocket() {
   ws.onopen = () => {
     if (indicator) {
       indicator.textContent = 'LIVE';
-      indicator.style.color = 'var(--olive)';
+      indicator.style.color = '';
+      indicator.style.opacity = '1';
     }
   };
 
@@ -1071,19 +1141,67 @@ function initWebSocket() {
 
   ws.onclose = () => {
     if (indicator) {
-      indicator.textContent = 'reconnecting...';
-      indicator.style.color = 'var(--ink-soft)';
+      indicator.textContent = 'OFFLINE';
+      indicator.style.opacity = '0.45';
     }
     setTimeout(initWebSocket, 3000);
   };
 }
 
-rebuildSidebar();
-restoreWalletState();
-tryAutoConnect();
-initWebSocket();
-renderView('overview');
-refreshTimer = setInterval(() => {
-  if (shouldAutoRefresh()) renderView(currentView);
-}, 30000);
+async function connectAppBilling() {
+  const output = document.getElementById('billing-connect-output');
+  try {
+    if (!getDeveloperApiKey()) throw new Error('Register first to get a developer API key.');
+    const appId = document.getElementById('billing-app-id')?.value.trim();
+    const dodoApiKey = document.getElementById('billing-dodo-api-key')?.value.trim();
+    const dodoProductId = document.getElementById('billing-dodo-product-id')?.value.trim();
+    const dodoWebhookSecret = document.getElementById('billing-dodo-webhook-secret')?.value.trim();
+    if (!appId) throw new Error('App ID is required.');
+
+    const data = await API.connectAppBilling(appId, {
+      dodo_api_key: dodoApiKey,
+      dodo_product_id: dodoProductId,
+      dodo_webhook_secret: dodoWebhookSecret
+    });
+
+    const latestApp = getLatestDeveloperApp();
+    if (latestApp?.app?.id === data.app.id) {
+      sessionStorage.setItem('dodoarc_latest_app', JSON.stringify({
+        ...latestApp,
+        app: data.app,
+        embed: data.app.embed || latestApp.embed,
+        checkoutUrl: data.app.checkoutUrl || latestApp.checkoutUrl
+      }));
+    }
+
+    output.innerHTML = `<div style="color:var(--olive);font-size:0.78rem;">Billing connected for ${escapeHtml(data.app.name)}. Paid checkouts now belong to the founder merchant account.</div>`;
+    showToast('Founder billing connected');
+    renderView('apps');
+  } catch (error) {
+    output.innerHTML = `<div style="color:#A32D2D;font-size:0.78rem;">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+async function updateAppConfig(appId) {
+  const planId = document.getElementById(`plan-${appId}`)?.value || 'plan_pro';
+  const creditsPerRun = Number(document.getElementById(`runcredits-${appId}`)?.value || 10);
+  await API.updateAppConfig(appId, { planId, creditsPerRun });
+  showToast('Product mapping updated');
+  renderView('apps');
+}
+
+async function initDashboard() {
+  await hydrateFounderSession();
+  rebuildSidebar();
+  restoreWalletState();
+  tryAutoConnect();
+  initWebSocket();
+  await renderView('overview');
+  refreshTimer = setInterval(() => {
+    if (shouldAutoRefresh()) renderView(currentView);
+  }, 30000);
+}
+
+initDashboard();
+document.getElementById('logout-btn')?.addEventListener('click', logoutToLogin);
 window.addEventListener('beforeunload', () => clearInterval(refreshTimer));

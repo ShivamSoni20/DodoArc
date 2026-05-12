@@ -17,8 +17,8 @@ const PLANS = [
   {
     id: 'plan_pro',
     name: 'Pro',
-    price: 2999,
-    display_price: '₹2,999/mo',
+    price: 499,
+    display_price: '₹499/mo',
     currency: 'INR',
     credits: 1000,
     interval: 'monthly',
@@ -98,12 +98,66 @@ const stmts = {
     FROM api_keys WHERE developer_id = ?
     ORDER BY created_at DESC, id DESC
   `),
+  insertAuthAccount: sqlite.prepare(`
+    INSERT INTO auth_accounts (
+      id, email, name, role, password_salt, password_hash, user_id, developer_id
+    ) VALUES (
+      @id, @email, @name, @role, @password_salt, @password_hash, @user_id, @developer_id
+    )
+  `),
+  getAuthAccountByEmailRole: sqlite.prepare(`
+    SELECT * FROM auth_accounts
+    WHERE email = ? AND role = ?
+  `),
+  getAuthAccountById: sqlite.prepare('SELECT * FROM auth_accounts WHERE id = ?'),
+  insertAuthSession: sqlite.prepare(`
+    INSERT INTO auth_sessions (id, token_hash, account_id, api_key, expires_at)
+    VALUES (@id, @token_hash, @account_id, @api_key, @expires_at)
+  `),
+  getAuthSessionByHash: sqlite.prepare(`
+    SELECT s.*, a.email, a.name, a.role, a.user_id, a.developer_id
+    FROM auth_sessions s
+    JOIN auth_accounts a ON a.id = s.account_id
+    WHERE s.token_hash = ?
+      AND datetime(s.expires_at) > datetime('now')
+  `),
+  deleteAuthSessionByHash: sqlite.prepare('DELETE FROM auth_sessions WHERE token_hash = ?'),
   insertApp: sqlite.prepare(`
-    INSERT INTO developer_apps (id, developer_id, name, description, plan_id, credits_per_run)
-    VALUES (@id, @developer_id, @name, @description, @plan_id, @credits_per_run)
+    INSERT INTO developer_apps (
+      id, developer_id, name, description, plan_id, credits_per_run,
+      dodo_api_key, dodo_product_id, dodo_webhook_secret, billing_connected
+    )
+    VALUES (
+      @id, @developer_id, @name, @description, @plan_id, @credits_per_run,
+      @dodo_api_key, @dodo_product_id, @dodo_webhook_secret, @billing_connected
+    )
   `),
   getAppsByDeveloper: sqlite.prepare('SELECT * FROM developer_apps WHERE developer_id = ? ORDER BY created_at DESC'),
   getAppById: sqlite.prepare('SELECT * FROM developer_apps WHERE id = ?'),
+  getAppBillingById: sqlite.prepare(`
+    SELECT id, developer_id, dodo_api_key, dodo_product_id, dodo_webhook_secret, billing_connected
+    FROM developer_apps
+    WHERE id = ?
+  `),
+  updateAppBilling: sqlite.prepare(`
+    UPDATE developer_apps
+    SET dodo_api_key = @dodo_api_key,
+        dodo_product_id = @dodo_product_id,
+        dodo_webhook_secret = @dodo_webhook_secret,
+        billing_connected = @billing_connected
+    WHERE id = @id
+  `),
+  updateAppConfig: sqlite.prepare(`
+    UPDATE developer_apps
+    SET plan_id = COALESCE(@plan_id, plan_id),
+        credits_per_run = COALESCE(@credits_per_run, credits_per_run)
+    WHERE id = @id
+  `),
+  getBillingWebhookSecrets: sqlite.prepare(`
+    SELECT DISTINCT dodo_webhook_secret
+    FROM developer_apps
+    WHERE dodo_webhook_secret IS NOT NULL AND TRIM(dodo_webhook_secret) != ''
+  `),
 
   getSubByUserScoped: sqlite.prepare(`
     SELECT * FROM subscriptions
@@ -123,6 +177,11 @@ const stmts = {
     ORDER BY created_at DESC LIMIT 1
   `),
   getSubById: sqlite.prepare('SELECT * FROM subscriptions WHERE id = ?'),
+  getSubsByUser: sqlite.prepare(`
+    SELECT * FROM subscriptions
+    WHERE user_id = ?
+    ORDER BY created_at DESC, id DESC
+  `),
   insertSub: sqlite.prepare(`
     INSERT INTO subscriptions (
       id, user_id, plan_id, developer_id, app_id, dodo_payment_id, dodo_subscription_id, status,
@@ -266,7 +325,9 @@ const stmts = {
   resetAgentRuns: sqlite.prepare('DELETE FROM agent_runs'),
   resetApps: sqlite.prepare('DELETE FROM developer_apps'),
   resetApiKeys: sqlite.prepare('DELETE FROM api_keys'),
-  resetDevelopers: sqlite.prepare('DELETE FROM developers')
+  resetDevelopers: sqlite.prepare('DELETE FROM developers'),
+  resetAuthSessions: sqlite.prepare('DELETE FROM auth_sessions'),
+  resetAuthAccounts: sqlite.prepare('DELETE FROM auth_accounts')
 };
 
 function normalizeUser(row) {
@@ -342,6 +403,26 @@ function normalizeApp(row) {
     description: row.description,
     planId: row.plan_id,
     creditsPerRun: row.credits_per_run,
+    billingConnected: Boolean(row.billing_connected),
+    billing: {
+      connected: Boolean(row.billing_connected),
+      dodoProductId: row.dodo_product_id || '',
+      hasApiKey: Boolean(row.dodo_api_key),
+      hasWebhookSecret: Boolean(row.dodo_webhook_secret)
+    },
+    created_at: row.created_at
+  };
+}
+
+function normalizeAuthAccount(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    userId: row.user_id || null,
+    developerId: row.developer_id || null,
     created_at: row.created_at
   };
 }
@@ -478,6 +559,17 @@ function hashApiKey(rawKey) {
   return crypto.createHash('sha256').update(rawKey).digest('hex');
 }
 
+function hashPassword(password, salt) {
+  return crypto.pbkdf2Sync(String(password), salt, 100000, 32, 'sha256').toString('hex');
+}
+
+function timingSafeHexEqual(left, right) {
+  const a = Buffer.from(String(left || ''), 'hex');
+  const b = Buffer.from(String(right || ''), 'hex');
+  if (a.length !== b.length || !a.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 function createDeveloper(email, name = '') {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const developer = {
@@ -529,11 +621,119 @@ function createApp(developerId, { name, description = '', planId = 'plan_pro', c
     name,
     description,
     plan_id: planId,
-    credits_per_run: Number(creditsPerRun) || 10
+    credits_per_run: Number(creditsPerRun) || 10,
+    dodo_api_key: null,
+    dodo_product_id: null,
+    dodo_webhook_secret: null,
+    billing_connected: 0
   };
   stmts.insertApp.run(app);
   ensureAppPolicy(app.id, developerId);
   return normalizeApp(stmts.getAppById.get(app.id));
+}
+
+function normalizeAppBilling(row) {
+  if (!row) return null;
+  return {
+    appId: row.id,
+    developerId: row.developer_id,
+    apiKey: row.dodo_api_key || '',
+    productId: row.dodo_product_id || '',
+    webhookSecret: row.dodo_webhook_secret || '',
+    connected: Boolean(row.billing_connected)
+  };
+}
+
+function updateAppBilling(appId, updates = {}) {
+  const current = stmts.getAppById.get(appId);
+  if (!current) return null;
+
+  const nextApiKey = String(updates.dodo_api_key ?? updates.dodoApiKey ?? current.dodo_api_key ?? '').trim();
+  const nextProductId = String(updates.dodo_product_id ?? updates.dodoProductId ?? current.dodo_product_id ?? '').trim();
+  const nextWebhookSecret = String(
+    updates.dodo_webhook_secret ?? updates.dodoWebhookSecret ?? current.dodo_webhook_secret ?? ''
+  ).trim();
+
+  stmts.updateAppBilling.run({
+    id: appId,
+    dodo_api_key: nextApiKey || null,
+    dodo_product_id: nextProductId || null,
+    dodo_webhook_secret: nextWebhookSecret || null,
+    billing_connected: nextApiKey && nextProductId && nextWebhookSecret ? 1 : 0
+  });
+
+  return normalizeApp(stmts.getAppById.get(appId));
+}
+
+function updateAppConfig(appId, updates = {}) {
+  const current = stmts.getAppById.get(appId);
+  if (!current) return null;
+
+  stmts.updateAppConfig.run({
+    id: appId,
+    plan_id: updates.plan_id ?? updates.planId ?? null,
+    credits_per_run: updates.credits_per_run ?? updates.creditsPerRun ?? null
+  });
+
+  return normalizeApp(stmts.getAppById.get(appId));
+}
+
+function createAuthAccount({ email, name = '', role, password, userId = null, developerId = null }) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const salt = crypto.randomBytes(16).toString('hex');
+  const record = {
+    id: `acct_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    email: normalizedEmail,
+    name: name || normalizedEmail.split('@')[0],
+    role,
+    password_salt: salt,
+    password_hash: hashPassword(password, salt),
+    user_id: userId,
+    developer_id: developerId
+  };
+  stmts.insertAuthAccount.run(record);
+  return normalizeAuthAccount(stmts.getAuthAccountById.get(record.id));
+}
+
+function getAuthAccountByEmailRole(email, role) {
+  return stmts.getAuthAccountByEmailRole.get(String(email || '').trim().toLowerCase(), role);
+}
+
+function verifyPassword(accountRow, password) {
+  if (!accountRow) return false;
+  const nextHash = hashPassword(password, accountRow.password_salt);
+  return timingSafeHexEqual(nextHash, accountRow.password_hash);
+}
+
+function createAuthSession(accountId, apiKey = null, ttlDays = 14) {
+  const rawToken = `sess_${crypto.randomBytes(24).toString('base64url')}`;
+  const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
+  stmts.insertAuthSession.run({
+    id: `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    token_hash: hashApiKey(rawToken),
+    account_id: accountId,
+    api_key: apiKey || null,
+    expires_at: expiresAt
+  });
+  return { token: rawToken, expiresAt };
+}
+
+function getAuthSession(rawToken) {
+  if (!rawToken) return null;
+  const row = stmts.getAuthSessionByHash.get(hashApiKey(String(rawToken).trim()));
+  if (!row) return null;
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    apiKey: row.api_key || null,
+    expiresAt: row.expires_at,
+    account: normalizeAuthAccount(row)
+  };
+}
+
+function deleteAuthSession(rawToken) {
+  if (!rawToken) return;
+  stmts.deleteAuthSessionByHash.run(hashApiKey(String(rawToken).trim()));
 }
 
 function getAppPolicy(appId) {
@@ -582,6 +782,7 @@ module.exports = {
   getUsers: () => sqlite.prepare('SELECT * FROM users ORDER BY created_at DESC').all().map(normalizeUser),
   getUserById: (id) => normalizeUser(stmts.getUserById.get(id)),
   getOrCreateUser,
+  getUserByEmail: (email) => normalizeUser(stmts.getUserByEmail.get(String(email || '').trim().toLowerCase())),
   updateUser: (id, updates) => {
     stmts.updateUser.run({
       id,
@@ -598,8 +799,16 @@ module.exports = {
   validateApiKey,
   getApiKeysByDeveloper: (developerId) => stmts.getApiKeysByDeveloper.all(developerId).map(normalizeApiKey),
   createApp,
+  updateAppConfig,
+  updateAppBilling,
   getAppsByDeveloper: (developerId) => stmts.getAppsByDeveloper.all(developerId).map(normalizeApp),
   getAppById: (id) => normalizeApp(stmts.getAppById.get(id)),
+  getAppBillingById: (id) => normalizeAppBilling(stmts.getAppBillingById.get(id)),
+  getBillingWebhookSecrets: () =>
+    stmts.getBillingWebhookSecrets
+      .all()
+      .map((row) => String(row.dodo_webhook_secret || '').trim())
+      .filter(Boolean),
   ensureAppPolicy,
   getAppPolicy,
   updateAppPolicy,
@@ -611,6 +820,7 @@ module.exports = {
   createSubscription: upsertSubscription,
   getAllSubscriptions: () => stmts.getAllSubs.all().map(normalizeSubscription),
   getSubscriptionsByDeveloper: (developerId) => stmts.getSubsByDeveloper.all(developerId).map(normalizeSubscription),
+  getSubscriptionsByUserId: (userId) => stmts.getSubsByUser.all(userId).map(normalizeSubscription),
   getSubscriptionByUser,
   updateSubscription,
   deductCredits,
@@ -669,12 +879,25 @@ module.exports = {
   getWebhookLog: (limit = 50) => stmts.getWebhookLog.all(limit),
   hasProcessedWebhook: (eventId) => Boolean(stmts.isWebhookProcessed.get(eventId)),
 
+  createAuthAccount,
+  getAuthAccountByEmailRole: (email, role) => normalizeAuthAccount(getAuthAccountByEmailRole(email, role)),
+  validatePassword: (email, role, password) => {
+    const accountRow = getAuthAccountByEmailRole(email, role);
+    if (!accountRow || !verifyPassword(accountRow, password)) return null;
+    return normalizeAuthAccount(accountRow);
+  },
+  createAuthSession,
+  getAuthSession,
+  deleteAuthSession,
+
   resetForTests: () => {
     sqlite.transaction(() => {
       stmts.resetWebhookLog.run();
       stmts.resetSubscriptions.run();
       stmts.resetAppUsers.run();
       stmts.resetPolicies.run();
+      stmts.resetAuthSessions.run();
+      stmts.resetAuthAccounts.run();
       stmts.resetUsers.run();
       stmts.resetApps.run();
       stmts.resetApiKeys.run();

@@ -4,12 +4,13 @@ const db = require('../src/services/db');
 
 beforeEach(() => db.resetForTests());
 
-function createCreditedUser(email = 'agenttest@dodoarc.xyz') {
+function createCreditedUser(email = 'agenttest@dodoarc.xyz', creditsPerRun = 10) {
   const developer = db.createDeveloper(`agent-dev-${Date.now()}@dodoarc.xyz`, 'Agent Dev');
   const app = db.createApp(developer.id, {
     name: 'Agent Test App',
     description: 'Scoped agent test app',
-    planId: 'plan_pro'
+    planId: 'plan_pro',
+    creditsPerRun
   });
   const user = db.getOrCreateUser(email, 'Agent Test');
   db.createSubscription({
@@ -58,6 +59,20 @@ test('agent run deducts 10 credits', async () => {
     .expect(200);
 
   expect(before - db.getRemainingCredits(scoped.user.id, { developerId: scoped.developer.id, appId: scoped.app.id })).toBe(10);
+});
+
+test('agent run uses app-specific credits per run mapping', async () => {
+  const scoped = createCreditedUser('mapped@dodoarc.xyz', 7);
+  const before = db.getRemainingCredits(scoped.user.id, { developerId: scoped.developer.id, appId: scoped.app.id });
+
+  const response = await request(app)
+    .post('/api/agent/run')
+    .set('x-api-key', scoped.apiKey)
+    .send({ userId: scoped.user.id, appId: scoped.app.id })
+    .expect(200);
+
+  expect(response.body.creditsUsed).toBe(7);
+  expect(before - db.getRemainingCredits(scoped.user.id, { developerId: scoped.developer.id, appId: scoped.app.id })).toBe(7);
 });
 
 test('agent run stores settlement receipts', async () => {

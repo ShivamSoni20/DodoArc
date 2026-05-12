@@ -10,12 +10,20 @@ router.post('/create', async (req, res) => {
     }
 
     const app = appId ? db.getAppById(appId) : null;
+    const appBilling = appId ? db.getAppBillingById(appId) : null;
     if (appId && !app) {
       return res.status(404).json({ error: 'App not found' });
     }
     const effectivePlanId = app?.planId || planId;
     const plan = db.getPlanById(effectivePlanId);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
+    if (app && plan.price > 0 && !app.billingConnected) {
+      return res.status(409).json({
+        error: 'App billing is not connected',
+        code: 'APP_BILLING_NOT_CONNECTED',
+        hint: 'The founder must connect their own Dodo API key, product ID, and webhook secret before taking paid checkouts.'
+      });
+    }
 
     const user = db.getOrCreateUser(email, name);
 
@@ -51,6 +59,12 @@ router.post('/create', async (req, res) => {
     const session = await dodo.createCheckoutSession({
       plan,
       user,
+      merchant: appBilling
+        ? {
+            apiKey: appBilling.apiKey || undefined,
+            productId: appBilling.productId || undefined
+          }
+        : null,
       metadata: {
         app: 'dodoarc',
         planId: plan.id,
